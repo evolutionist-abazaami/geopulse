@@ -1,7 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
-import { Globe, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
+import geopulseLogo from "@/assets/geopulse-logo.png";
 
 const Navigation = () => {
   const location = useLocation();
@@ -28,10 +29,12 @@ const Navigation = () => {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-md border-b border-border">
       <div className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="p-2 rounded-lg bg-gradient-ocean transition-transform group-hover:scale-105">
-              <Globe className="h-6 w-6 text-primary-foreground" />
-            </div>
+          <Link to="/" className="flex items-center gap-3 group">
+            <img 
+              src={geopulseLogo} 
+              alt="GeoPulse Logo" 
+              className="h-10 w-10 transition-transform group-hover:scale-105"
+            />
             <span className="text-2xl font-bold bg-gradient-ocean bg-clip-text text-transparent">
               GeoPulse
             </span>
