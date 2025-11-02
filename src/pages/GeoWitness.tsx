@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { MapContainer, TileLayer } from "react-leaflet";
+import Map from "@/components/Map";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Download, Play, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import "leaflet/dist/leaflet.css";
 
 const GeoWitness = () => {
   const [eventType, setEventType] = useState("deforestation");
@@ -35,18 +34,7 @@ const GeoWitness = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Map Container */}
         <div className="flex-1 relative">
-          <MapContainer
-            key="geowitness-map"
-            center={[6.5, -1.5]}
-            zoom={7}
-            style={{ height: "100%", width: "100%" }}
-            zoomControl={true}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-          </MapContainer>
+          <Map center={[6.5, -1.5]} zoom={7} className="h-full w-full" />
 
           {/* Controls Overlay */}
           <div className="absolute top-6 left-6 z-[1000] space-y-4">

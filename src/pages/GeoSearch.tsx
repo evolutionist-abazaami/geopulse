@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { MapContainer, TileLayer } from "react-leaflet";
+import Map from "@/components/Map";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search, Sparkles, MapPin } from "lucide-react";
 import { toast } from "sonner";
-import "leaflet/dist/leaflet.css";
 
 const GeoSearch = () => {
   const [query, setQuery] = useState("");
@@ -46,18 +45,7 @@ const GeoSearch = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Map Container */}
         <div className="flex-1 relative">
-          <MapContainer
-            key="geosearch-map"
-            center={[9.0, 1.0]}
-            zoom={6}
-            style={{ height: "100%", width: "100%" }}
-            zoomControl={true}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-          </MapContainer>
+          <Map center={[9.0, 1.0]} zoom={6} className="h-full w-full" />
 
           {/* Search Bar Overlay */}
           <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-2xl px-4">
