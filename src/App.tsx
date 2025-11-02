@@ -18,15 +18,17 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Navigation />
-        <div className="pt-[73px]">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/geowitness" element={<GeoWitness />} />
-            <Route path="/geosearch" element={<GeoSearch />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+        <div className="min-h-screen bg-background">
+          <Navigation />
+          <div className="pt-[73px]">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/geowitness" element={<GeoWitness />} />
+              <Route path="/geosearch" element={<GeoSearch />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
         </div>
       </BrowserRouter>
     </TooltipProvider>
