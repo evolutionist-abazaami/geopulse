@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { MapContainer, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, TileLayer } from "react-leaflet";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Calendar, Download, Play, AlertTriangle } from "lucide-react";
+import { Download, Play, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import "leaflet/dist/leaflet.css";
 
@@ -31,19 +31,20 @@ const GeoWitness = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="h-[calc(100vh-73px)] flex flex-col bg-background">
       <div className="flex-1 flex overflow-hidden">
         {/* Map Container */}
         <div className="flex-1 relative">
           <MapContainer
+            key="geowitness-map"
             center={[6.5, -1.5]}
             zoom={7}
-            className="h-full w-full"
+            style={{ height: "100%", width: "100%" }}
             zoomControl={true}
           >
             <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             />
           </MapContainer>
 

@@ -42,19 +42,20 @@ const GeoSearch = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="h-[calc(100vh-73px)] flex flex-col bg-background">
       <div className="flex-1 flex overflow-hidden">
         {/* Map Container */}
         <div className="flex-1 relative">
           <MapContainer
+            key="geosearch-map"
             center={[9.0, 1.0]}
             zoom={6}
-            className="h-full w-full"
+            style={{ height: "100%", width: "100%" }}
             zoomControl={true}
           >
             <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             />
           </MapContainer>
 
