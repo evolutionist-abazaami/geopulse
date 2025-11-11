@@ -4,29 +4,80 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Download, Play, AlertTriangle } from "lucide-react";
+import { Download, Play, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+const africanRegions = [
+  "Ashanti Region, Ghana", "Lagos, Nigeria", "Nairobi, Kenya", "Cairo, Egypt",
+  "Cape Town, South Africa", "Addis Ababa, Ethiopia", "Dar es Salaam, Tanzania",
+  "Abidjan, Côte d'Ivoire", "Kampala, Uganda", "Accra, Ghana", "Kigali, Rwanda",
+  "Dakar, Senegal", "Mogadishu, Somalia", "Luanda, Angola", "Maputo, Mozambique",
+  "Harare, Zimbabwe", "Lusaka, Zambia", "Kinshasa, DRC", "Bamako, Mali",
+  "Ouagadougou, Burkina Faso", "Niamey, Niger", "N'Djamena, Chad",
+  "Khartoum, Sudan", "Tunis, Tunisia", "Algiers, Algeria", "Rabat, Morocco",
+  "Tripoli, Libya", "Windhoek, Namibia", "Gaborone, Botswana", "Maseru, Lesotho"
+];
+
+const eventTypes = [
+  { value: "deforestation", label: "Deforestation", icon: "🌳" },
+  { value: "flood", label: "Flood", icon: "🌊" },
+  { value: "drought", label: "Drought", icon: "🏜️" },
+  { value: "fire", label: "Wildfire", icon: "🔥" },
+  { value: "urbanization", label: "Urbanization", icon: "🏙️" },
+  { value: "climate_change", label: "Climate Change", icon: "🌡️" },
+  { value: "desertification", label: "Desertification", icon: "🏜️" },
+  { value: "coastal_erosion", label: "Coastal Erosion", icon: "🏖️" },
+  { value: "agriculture", label: "Agricultural Change", icon: "🌾" },
+];
 
 const GeoWitness = () => {
   const [eventType, setEventType] = useState("deforestation");
+  const [region, setRegion] = useState("Ashanti Region, Ghana");
+  const [startDate, setStartDate] = useState("2022-01-01");
+  const [endDate, setEndDate] = useState("2024-01-01");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<any>(null);
 
   const runAnalysis = async () => {
     setIsAnalyzing(true);
-    toast.info("Starting satellite analysis...");
+    setResults(null);
+    toast.info("Starting AI-powered satellite analysis...");
 
-    // Simulate analysis
-    setTimeout(() => {
-      setResults({
-        eventType,
-        area: "1,245 km²",
-        changePercent: 12.5,
-        summary: `Deforestation increased by 12.5% in the Ashanti region between 2022-2024. Analysis indicates significant tree cover loss in the northern sectors.`
-      });
-      setIsAnalyzing(false);
+    try {
+      const coordinates = { lat: 6.5, lng: -1.5 }; // Default Ghana coordinates
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-satellite`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            eventType,
+            region,
+            startDate,
+            endDate,
+            coordinates,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Analysis failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setResults(data);
       toast.success("Analysis complete!");
-    }, 3000);
+    } catch (error) {
+      console.error("Analysis error:", error);
+      toast.error("Failed to complete analysis. Please try again.");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -52,27 +103,40 @@ const GeoWitness = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="deforestation">Deforestation</SelectItem>
-                      <SelectItem value="flood">Flood</SelectItem>
-                      <SelectItem value="fire">Fire</SelectItem>
-                      <SelectItem value="urbanization">Urbanization</SelectItem>
+                      {eventTypes.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          <span className="flex items-center gap-2">
+                            <span>{type.icon}</span>
+                            {type.label}
+                          </span>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium mb-2 block">Region</label>
-                  <Input placeholder="e.g., Ashanti Region, Ghana" defaultValue="Ashanti Region, Ghana" />
+                  <Select value={region} onValueChange={setRegion}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {africanRegions.map((r) => (
+                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-sm font-medium mb-2 block">Start Date</label>
-                    <Input type="date" defaultValue="2022-01-01" />
+                    <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-sm font-medium mb-2 block">End Date</label>
-                    <Input type="date" defaultValue="2024-01-01" />
+                    <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                   </div>
                 </div>
 
@@ -83,16 +147,20 @@ const GeoWitness = () => {
                 >
                   {isAnalyzing ? (
                     <>
-                      <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-                      Analyzing...
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Analyzing with AI...
                     </>
                   ) : (
                     <>
                       <Play className="h-4 w-4 mr-2" />
-                      Run Analysis
+                      Run AI Analysis
                     </>
                   )}
                 </Button>
+                
+                <p className="text-xs text-muted-foreground text-center">
+                  Powered by Google Earth Engine & AI
+                </p>
               </div>
             </Card>
           </div>
@@ -137,6 +205,15 @@ const GeoWitness = () => {
                   <p className="text-sm text-muted-foreground mb-2">Summary</p>
                   <p className="text-sm leading-relaxed">{results.summary}</p>
                 </div>
+
+                {results.fullAnalysis && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Detailed Analysis</p>
+                    <div className="text-sm leading-relaxed whitespace-pre-line max-h-60 overflow-y-auto">
+                      {results.fullAnalysis}
+                    </div>
+                  </div>
+                )}
 
                 <Button className="w-full" variant="outline">
                   <Download className="h-4 w-4 mr-2" />

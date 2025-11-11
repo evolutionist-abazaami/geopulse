@@ -1,1 +1,7 @@
 project_id = "xcfbqenmetcnootkqdew"
+
+[functions.analyze-satellite]
+verify_jwt = false
+
+[functions.process-search]
+verify_jwt = false

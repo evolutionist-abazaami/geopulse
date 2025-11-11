@@ -14,7 +14,81 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analysis_results: {
+        Row: {
+          ai_analysis: Json | null
+          area_analyzed: string | null
+          change_percent: number | null
+          coordinates: Json | null
+          created_at: string
+          end_date: string
+          event_type: string
+          id: string
+          region: string
+          start_date: string
+          summary: string | null
+          user_id: string | null
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          area_analyzed?: string | null
+          change_percent?: number | null
+          coordinates?: Json | null
+          created_at?: string
+          end_date: string
+          event_type: string
+          id?: string
+          region: string
+          start_date: string
+          summary?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          ai_analysis?: Json | null
+          area_analyzed?: string | null
+          change_percent?: number | null
+          coordinates?: Json | null
+          created_at?: string
+          end_date?: string
+          event_type?: string
+          id?: string
+          region?: string
+          start_date?: string
+          summary?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      search_queries: {
+        Row: {
+          ai_interpretation: string | null
+          confidence_level: number | null
+          created_at: string
+          id: string
+          query: string
+          results: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          ai_interpretation?: string | null
+          confidence_level?: number | null
+          created_at?: string
+          id?: string
+          query: string
+          results?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          ai_interpretation?: string | null
+          confidence_level?: number | null
+          created_at?: string
+          id?: string
+          query?: string
+          results?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

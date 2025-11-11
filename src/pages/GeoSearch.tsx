@@ -1,10 +1,11 @@
 import { useState } from "react";
 import Map from "@/components/Map";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, Sparkles, MapPin } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Search, Sparkles, Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const GeoSearch = () => {
   const [query, setQuery] = useState("");
@@ -12,9 +13,12 @@ const GeoSearch = () => {
   const [results, setResults] = useState<any>(null);
 
   const exampleQueries = [
-    "Show me areas with forest loss in Ashanti region in 2023",
-    "Where has flooding occurred in Nigeria over the past year?",
-    "Detect urban expansion in Lagos between 2020 and 2024"
+    "Show me deforestation in the Congo Basin over the past 5 years",
+    "Flooding patterns in West Africa during rainy season",
+    "Urban expansion in East African cities since 2020",
+    "Drought conditions in the Sahel region",
+    "Coastal erosion along West African coastline",
+    "Agricultural changes in the Nile Delta",
   ];
 
   const handleSearch = async () => {
@@ -24,20 +28,35 @@ const GeoSearch = () => {
     }
 
     setIsSearching(true);
-    toast.info("Processing your query with AI...");
+    setResults(null);
+    toast.info("Analyzing your query with AI...");
 
-    // Simulate AI processing
-    setTimeout(() => {
-      setResults({
-        query,
-        interpretation: "Searching for deforestation patterns in the Ashanti region during 2023",
-        findings: "Detected 32 km² of deforested land in the Ashanti region in 2023. Primary locations include the Mampong and Ejisu districts.",
-        confidence: 92,
-        markers: []
-      });
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-search`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ query }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setResults(data);
+      toast.success("Analysis complete!");
+    } catch (error) {
+      console.error("Search error:", error);
+      toast.error("Failed to process search. Please try again.");
+    } finally {
       setIsSearching(false);
-      toast.success("Search complete!");
-    }, 2500);
+    }
   };
 
   return (
@@ -54,7 +73,7 @@ const GeoSearch = () => {
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input
-                    placeholder="Ask anything about environmental changes..."
+                    placeholder="Ask anything about environmental changes in Africa..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -64,11 +83,14 @@ const GeoSearch = () => {
                 <Button 
                   size="lg"
                   onClick={handleSearch}
-                  disabled={isSearching}
+                  disabled={isSearching || !query.trim()}
                   className="bg-gradient-ocean hover:opacity-90 px-6"
                 >
                   {isSearching ? (
-                    <div className="h-5 w-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      Analyzing...
+                    </>
                   ) : (
                     <>
                       <Sparkles className="h-5 w-5 mr-2" />
@@ -94,6 +116,10 @@ const GeoSearch = () => {
                   </div>
                 </div>
               )}
+              
+              <p className="text-xs text-muted-foreground text-center mt-3">
+                Powered by AI & satellite data
+              </p>
             </Card>
           </div>
         </div>
@@ -116,10 +142,33 @@ const GeoSearch = () => {
                 <div className="flex items-center justify-between">
                   <p className="font-semibold">Findings</p>
                   <span className="text-xs px-2 py-1 rounded-full bg-secondary/20 text-secondary font-medium">
-                    {results.confidence}% confidence
+                    {results.confidenceLevel}% confidence
                   </span>
                 </div>
-                <p className="text-sm leading-relaxed">{results.findings}</p>
+                
+                <div className="space-y-3">
+                  {results.findings && results.findings.length > 0 ? (
+                    results.findings.map((finding: string, index: number) => (
+                      <div key={index} className="flex items-start gap-2">
+                        <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
+                        <p className="text-sm">{finding}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No specific findings at this time</p>
+                  )}
+                </div>
+
+                {results.recommendations && results.recommendations.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium mb-2">Recommendations:</p>
+                    <div className="space-y-2">
+                      {results.recommendations.map((rec: string, index: number) => (
+                        <p key={index} className="text-sm text-muted-foreground">{rec}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t border-border space-y-2">
@@ -135,7 +184,10 @@ const GeoSearch = () => {
               <Button 
                 variant="ghost" 
                 className="w-full"
-                onClick={() => setResults(null)}
+                onClick={() => {
+                  setResults(null);
+                  setQuery("");
+                }}
               >
                 New Search
               </Button>
