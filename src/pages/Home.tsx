@@ -1,8 +1,25 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Satellite, Search, Globe2, TrendingUp } from "lucide-react";
+import { ArrowRight, Satellite, Search, Globe2, TrendingUp, Shield } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { User } from "@supabase/supabase-js";
 
 const Home = () => {
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <div className="relative overflow-hidden">
@@ -28,17 +45,36 @@ const Home = () => {
             </p>
 
             <div className="flex flex-wrap gap-4 justify-center">
-              <Link to="/geowitness">
-                <Button size="lg" className="bg-gradient-ocean hover:opacity-90 shadow-elevated">
-                  Launch GeoWitness
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <Link to="/geosearch">
-                <Button size="lg" variant="outline" className="border-2">
-                  Try GeoSearch
-                </Button>
-              </Link>
+              {user ? (
+                <>
+                  <Link to="/geowitness">
+                    <Button size="lg" className="bg-gradient-ocean hover:opacity-90 shadow-elevated">
+                      Launch GeoWitness
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  </Link>
+                  <Link to="/geosearch">
+                    <Button size="lg" variant="outline" className="border-2">
+                      Try GeoSearch
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/auth">
+                    <Button size="lg" className="bg-gradient-ocean hover:opacity-90 shadow-elevated gap-2">
+                      <Shield className="h-5 w-5" />
+                      Sign In to Start
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  </Link>
+                  <Link to="/geowitness">
+                    <Button size="lg" variant="outline" className="border-2">
+                      Try Demo
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -88,9 +124,9 @@ const Home = () => {
             <p className="text-lg text-primary-foreground/80 mb-8 max-w-2xl mx-auto">
               Join researchers, policymakers, and organizations using GeoPulse for data-driven environmental decisions.
             </p>
-            <Link to="/auth">
+            <Link to={user ? "/geowitness" : "/auth"}>
               <Button size="lg" variant="secondary" className="bg-white/90 text-primary hover:bg-white shadow-xl">
-                Get Started Free
+                {user ? "Start Analyzing" : "Get Started Free"}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>

@@ -1,15 +1,32 @@
-import { Link, useLocation } from "react-router-dom";
-import { Moon, Sun } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Moon, Sun, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import geopulseLogo from "@/assets/geopulse-logo.png";
+import { supabase } from "@/integrations/supabase/client";
+import { User as SupabaseUser } from "@supabase/supabase-js";
+import { toast } from "sonner";
 
 const Navigation = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [user, setUser] = useState<SupabaseUser | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
+    
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const toggleTheme = () => {
@@ -20,6 +37,16 @@ const Navigation = () => {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
+    }
+  };
+
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error("Failed to sign out");
+    } else {
+      toast.success("Signed out successfully");
+      navigate("/auth");
     }
   };
 
@@ -75,11 +102,29 @@ const Navigation = () => {
               )}
             </Button>
 
-            <Link to="/auth">
-              <Button variant="default" className="bg-gradient-ocean hover:opacity-90">
-                Sign In
-              </Button>
-            </Link>
+            {user ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground hidden md:inline">
+                  {user.email}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSignOut}
+                  className="gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span className="hidden sm:inline">Sign Out</span>
+                </Button>
+              </div>
+            ) : (
+              <Link to="/auth">
+                <Button variant="default" className="bg-gradient-ocean hover:opacity-90 gap-2">
+                  <User className="h-4 w-4" />
+                  Sign In
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>

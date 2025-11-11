@@ -32,13 +32,16 @@ const GeoSearch = () => {
     toast.info("Analyzing your query with AI...");
 
     try {
+      // Get current session for authenticated requests
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-search`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            "Authorization": `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({ query }),
         }
@@ -50,7 +53,12 @@ const GeoSearch = () => {
 
       const data = await response.json();
       setResults(data);
-      toast.success("Analysis complete!");
+      
+      if (session) {
+        toast.success("Analysis complete and saved to your history!");
+      } else {
+        toast.success("Analysis complete! Sign in to save your searches.");
+      }
     } catch (error) {
       console.error("Search error:", error);
       toast.error("Failed to process search. Please try again.");

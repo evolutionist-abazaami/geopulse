@@ -47,13 +47,16 @@ const GeoWitness = () => {
     try {
       const coordinates = { lat: 6.5, lng: -1.5 }; // Default Ghana coordinates
       
+      // Get current session for authenticated requests
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-satellite`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            "Authorization": `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
             eventType,
@@ -71,7 +74,12 @@ const GeoWitness = () => {
 
       const data = await response.json();
       setResults(data);
-      toast.success("Analysis complete!");
+      
+      if (session) {
+        toast.success("Analysis complete and saved to your history!");
+      } else {
+        toast.success("Analysis complete! Sign in to save your history.");
+      }
     } catch (error) {
       console.error("Analysis error:", error);
       toast.error("Failed to complete analysis. Please try again.");
