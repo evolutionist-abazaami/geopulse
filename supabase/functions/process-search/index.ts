@@ -27,16 +27,18 @@ serve(async (req) => {
 Your role is to:
 1. Interpret natural language queries about environmental changes across Africa
 2. Extract key information: location, event type, time period, specific concerns
-3. Provide relevant satellite data insights
+3. Provide relevant satellite data insights with REAL coordinates
 4. Suggest monitoring strategies and data sources
 5. Assess confidence levels based on data availability
 
 Format responses as structured JSON with:
 - interpretation: Clear explanation of what the user is looking for
 - findings: Array of relevant environmental insights
-- locations: Suggested areas to monitor
+- locations: Array of location objects with {name: string, lat: number, lng: number, boundary?: [[lat,lng][]]}
 - confidenceLevel: 1-100 scale
-- recommendations: Actionable next steps`;
+- recommendations: Actionable next steps
+
+IMPORTANT: Always provide real geographic coordinates for locations mentioned in Africa.`;
 
     const userPrompt = `Interpret this environmental search query: "${query}"
 

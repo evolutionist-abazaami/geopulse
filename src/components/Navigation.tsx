@@ -88,6 +88,18 @@ const Navigation = () => {
             >
               GeoSearch
             </Link>
+            {user && (
+              <Link
+                to="/dashboard"
+                className={`text-sm font-medium transition-colors hover:text-primary ${
+                  isActive("/dashboard")
+                    ? "text-primary"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Dashboard
+              </Link>
+            )}
             
             <Button
               variant="ghost"
