@@ -1,5 +1,5 @@
 import { useState } from "react";
-import Map from "@/components/Map";
+import InteractiveMap from "@/components/InteractiveMap";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -11,6 +11,10 @@ const GeoSearch = () => {
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<any>(null);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([9.0, 1.0]);
+  const [mapZoom, setMapZoom] = useState(6);
+  const [mapMarkers, setMapMarkers] = useState<any[]>([]);
+  const [mapPolygons, setMapPolygons] = useState<any[]>([]);
 
   const exampleQueries = [
     "Show me deforestation in the Congo Basin over the past 5 years",
@@ -54,6 +58,36 @@ const GeoSearch = () => {
       const data = await response.json();
       setResults(data);
       
+      // Update map visualization based on search results
+      if (data.locations && data.locations.length > 0) {
+        const firstLocation = data.locations[0];
+        
+        // Set markers for all found locations
+        const markers = data.locations.map((loc: any, idx: number) => ({
+          lat: loc.lat || 6.5,
+          lng: loc.lng || -1.5,
+          label: loc.name || `Location ${idx + 1}`,
+          color: "#0891b2"
+        }));
+        setMapMarkers(markers);
+        
+        // Center on first location
+        if (firstLocation.lat && firstLocation.lng) {
+          setMapCenter([firstLocation.lat, firstLocation.lng]);
+          setMapZoom(8);
+        }
+        
+        // Add polygons if boundaries are provided
+        if (firstLocation.boundary) {
+          setMapPolygons([{
+            coordinates: firstLocation.boundary,
+            label: firstLocation.name || "Area of Interest",
+            color: "#0891b2",
+            fillOpacity: 0.2
+          }]);
+        }
+      }
+      
       if (session) {
         toast.success("Analysis complete and saved to your history!");
       } else {
@@ -72,7 +106,13 @@ const GeoSearch = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Map Container */}
         <div className="flex-1 relative">
-          <Map center={[9.0, 1.0]} zoom={6} className="h-full w-full" />
+          <InteractiveMap 
+            center={mapCenter} 
+            zoom={mapZoom} 
+            className="h-full w-full"
+            markers={mapMarkers}
+            polygons={mapPolygons}
+          />
 
           {/* Search Bar Overlay */}
           <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-2xl px-4">

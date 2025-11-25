@@ -1,5 +1,5 @@
 import { useState } from "react";
-import Map from "@/components/Map";
+import InteractiveMap from "@/components/InteractiveMap";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -38,6 +38,10 @@ const GeoWitness = () => {
   const [endDate, setEndDate] = useState("2024-01-01");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<any>(null);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([6.5, -1.5]);
+  const [mapZoom, setMapZoom] = useState(7);
+  const [mapMarkers, setMapMarkers] = useState<any[]>([]);
+  const [mapPolygons, setMapPolygons] = useState<any[]>([]);
 
   const runAnalysis = async () => {
     setIsAnalyzing(true);
@@ -75,6 +79,34 @@ const GeoWitness = () => {
       const data = await response.json();
       setResults(data);
       
+      // Update map visualization
+      if (coordinates) {
+        setMapCenter([coordinates.lat, coordinates.lng]);
+        setMapZoom(10);
+        
+        // Add marker for analyzed location
+        setMapMarkers([{
+          lat: coordinates.lat,
+          lng: coordinates.lng,
+          label: `${region} - ${eventType}`,
+          color: "#ef4444"
+        }]);
+        
+        // Create polygon to show affected area (example boundary)
+        const boundarySize = 0.1;
+        setMapPolygons([{
+          coordinates: [
+            [coordinates.lat + boundarySize, coordinates.lng - boundarySize],
+            [coordinates.lat + boundarySize, coordinates.lng + boundarySize],
+            [coordinates.lat - boundarySize, coordinates.lng + boundarySize],
+            [coordinates.lat - boundarySize, coordinates.lng - boundarySize],
+          ] as [number, number][],
+          label: `${data.changePercent}% ${eventType} detected`,
+          color: data.changePercent > 50 ? "#ef4444" : "#f97316",
+          fillOpacity: 0.2
+        }]);
+      }
+      
       if (session) {
         toast.success("Analysis complete and saved to your history!");
       } else {
@@ -93,7 +125,13 @@ const GeoWitness = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Map Container */}
         <div className="flex-1 relative">
-          <Map center={[6.5, -1.5]} zoom={7} className="h-full w-full" />
+          <InteractiveMap 
+            center={mapCenter} 
+            zoom={mapZoom} 
+            className="h-full w-full"
+            markers={mapMarkers}
+            polygons={mapPolygons}
+          />
 
           {/* Controls Overlay */}
           <div className="absolute top-6 left-6 z-[1000] space-y-4">

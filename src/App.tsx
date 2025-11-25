@@ -7,6 +7,7 @@ import Navigation from "./components/Navigation";
 import Home from "./pages/Home";
 import GeoWitness from "./pages/GeoWitness";
 import GeoSearch from "./pages/GeoSearch";
+import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -25,6 +26,7 @@ const App = () => (
               <Route path="/" element={<Home />} />
               <Route path="/geowitness" element={<GeoWitness />} />
               <Route path="/geosearch" element={<GeoSearch />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
