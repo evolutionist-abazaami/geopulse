@@ -245,10 +245,10 @@ const GeoWitness = () => {
                 <div>
                   <label className="text-sm font-medium mb-2 block">Event Type</label>
                   <Select value={eventType} onValueChange={setEventType}>
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-card">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[400px] overflow-y-auto">
                       {eventTypes.map((type) => (
                         <SelectItem key={type.value} value={type.value}>
                           <span className="flex items-center gap-2">
@@ -264,10 +264,10 @@ const GeoWitness = () => {
                 <div>
                   <label className="text-sm font-medium mb-2 block">Region</label>
                   <Select value={region} onValueChange={setRegion}>
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-card">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="max-h-60">
+                    <SelectContent className="max-h-[400px] overflow-y-auto">
                       {africanRegions.map((r) => (
                         <SelectItem key={r} value={r}>{r}</SelectItem>
                       ))}
