@@ -59,7 +59,8 @@ Consider satellite data availability and relevance.`;
           { role: "user", content: userPrompt }
         ],
         temperature: 0.6,
-        max_tokens: 1500,
+        max_tokens: 2000,
+        response_format: { type: "json_object" }, // Force JSON response
       }),
     });
 
@@ -70,18 +71,24 @@ Consider satellite data availability and relevance.`;
     }
 
     const aiData = await aiResponse.json();
-    const interpretation = aiData.choices[0].message.content;
+    let interpretation = aiData.choices[0].message.content;
+
+    // Strip markdown code blocks if present
+    interpretation = interpretation.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
 
     // Try to parse as JSON if structured, otherwise use as text
     let structuredResult;
     try {
       structuredResult = JSON.parse(interpretation);
-    } catch {
+    } catch (parseError) {
+      console.error("Failed to parse AI response as JSON:", parseError);
       // If not JSON, create structure from text
       structuredResult = {
         interpretation: interpretation.split('\n\n')[0],
-        findings: interpretation.split('\n').filter((line: string) => line.trim().startsWith('-')),
-        confidenceLevel: 85,
+        findings: interpretation.split('\n').filter((line: string) => line.trim().startsWith('-') || line.trim().startsWith('•')),
+        locations: [],
+        confidenceLevel: 75,
+        recommendations: [],
       };
     }
 
