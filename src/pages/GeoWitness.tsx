@@ -9,26 +9,126 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const africanRegions = [
-  "Ashanti Region, Ghana", "Lagos, Nigeria", "Nairobi, Kenya", "Cairo, Egypt",
-  "Cape Town, South Africa", "Addis Ababa, Ethiopia", "Dar es Salaam, Tanzania",
-  "Abidjan, Côte d'Ivoire", "Kampala, Uganda", "Accra, Ghana", "Kigali, Rwanda",
-  "Dakar, Senegal", "Mogadishu, Somalia", "Luanda, Angola", "Maputo, Mozambique",
-  "Harare, Zimbabwe", "Lusaka, Zambia", "Kinshasa, DRC", "Bamako, Mali",
-  "Ouagadougou, Burkina Faso", "Niamey, Niger", "N'Djamena, Chad",
-  "Khartoum, Sudan", "Tunis, Tunisia", "Algiers, Algeria", "Rabat, Morocco",
-  "Tripoli, Libya", "Windhoek, Namibia", "Gaborone, Botswana", "Maseru, Lesotho"
+  // West Africa
+  "Lagos, Nigeria", "Abuja, Nigeria", "Kano, Nigeria", "Port Harcourt, Nigeria",
+  "Accra, Ghana", "Kumasi, Ghana", "Ashanti Region, Ghana", "Volta Region, Ghana",
+  "Dakar, Senegal", "Thiès, Senegal", "Saint-Louis, Senegal",
+  "Abidjan, Côte d'Ivoire", "Yamoussoukro, Côte d'Ivoire", "Bouaké, Côte d'Ivoire",
+  "Bamako, Mali", "Sikasso, Mali", "Mopti, Mali", "Timbuktu, Mali",
+  "Ouagadougou, Burkina Faso", "Bobo-Dioulasso, Burkina Faso",
+  "Niamey, Niger", "Zinder, Niger", "Maradi, Niger",
+  "Conakry, Guinea", "Freetown, Sierra Leone", "Monrovia, Liberia",
+  "Lomé, Togo", "Cotonou, Benin", "Banjul, The Gambia", "Bissau, Guinea-Bissau",
+  
+  // East Africa
+  "Nairobi, Kenya", "Mombasa, Kenya", "Kisumu, Kenya", "Nakuru, Kenya",
+  "Dar es Salaam, Tanzania", "Dodoma, Tanzania", "Arusha, Tanzania", "Mwanza, Tanzania",
+  "Kampala, Uganda", "Entebbe, Uganda", "Gulu, Uganda", "Jinja, Uganda",
+  "Addis Ababa, Ethiopia", "Dire Dawa, Ethiopia", "Mekelle, Ethiopia", "Bahir Dar, Ethiopia",
+  "Kigali, Rwanda", "Butare, Rwanda", "Gisenyi, Rwanda",
+  "Bujumbura, Burundi", "Gitega, Burundi",
+  "Mogadishu, Somalia", "Hargeisa, Somalia", "Bosaso, Somalia",
+  "Djibouti City, Djibouti", "Asmara, Eritrea",
+  
+  // Central Africa
+  "Kinshasa, DRC", "Lubumbashi, DRC", "Goma, DRC", "Kisangani, DRC", "Bukavu, DRC",
+  "Brazzaville, Republic of Congo", "Pointe-Noire, Republic of Congo",
+  "Yaoundé, Cameroon", "Douala, Cameroon", "Garoua, Cameroon", "Bamenda, Cameroon",
+  "Libreville, Gabon", "Port-Gentil, Gabon",
+  "Bangui, Central African Republic",
+  "Malabo, Equatorial Guinea", "Bata, Equatorial Guinea",
+  "N'Djamena, Chad", "Moundou, Chad", "Sarh, Chad",
+  "São Tomé, São Tomé and Príncipe",
+  
+  // Southern Africa
+  "Cape Town, South Africa", "Johannesburg, South Africa", "Durban, South Africa", 
+  "Pretoria, South Africa", "Port Elizabeth, South Africa", "Bloemfontein, South Africa",
+  "Luanda, Angola", "Huambo, Angola", "Benguela, Angola", "Lubango, Angola",
+  "Maputo, Mozambique", "Beira, Mozambique", "Nampula, Mozambique", "Matola, Mozambique",
+  "Harare, Zimbabwe", "Bulawayo, Zimbabwe", "Mutare, Zimbabwe",
+  "Lusaka, Zambia", "Kitwe, Zambia", "Ndola, Zambia", "Livingstone, Zambia",
+  "Windhoek, Namibia", "Walvis Bay, Namibia", "Swakopmund, Namibia",
+  "Gaborone, Botswana", "Francistown, Botswana", "Maun, Botswana",
+  "Maseru, Lesotho", "Mbabane, Eswatini", "Antananarivo, Madagascar",
+  "Port Louis, Mauritius", "Victoria, Seychelles",
+  
+  // North Africa
+  "Cairo, Egypt", "Alexandria, Egypt", "Giza, Egypt", "Luxor, Egypt", "Aswan, Egypt",
+  "Khartoum, Sudan", "Omdurman, Sudan", "Port Sudan, Sudan",
+  "Juba, South Sudan", "Wau, South Sudan",
+  "Tunis, Tunisia", "Sfax, Tunisia", "Sousse, Tunisia",
+  "Algiers, Algeria", "Oran, Algeria", "Constantine, Algeria", "Annaba, Algeria",
+  "Rabat, Morocco", "Casablanca, Morocco", "Marrakech, Morocco", "Fes, Morocco", "Tangier, Morocco",
+  "Tripoli, Libya", "Benghazi, Libya", "Misrata, Libya",
+  
+  // Special Regions
+  "Congo Basin", "Sahel Region", "Lake Victoria Region", "Nile Delta",
+  "Okavango Delta, Botswana", "Zambezi River Basin", "Niger Delta, Nigeria",
+  "Ethiopian Highlands", "Great Rift Valley", "Serengeti, Tanzania",
+  "Virunga National Park, DRC", "Kruger National Park, South Africa"
 ];
 
 const eventTypes = [
+  // Vegetation & Forest
   { value: "deforestation", label: "Deforestation", icon: "🌳" },
+  { value: "forest_degradation", label: "Forest Degradation", icon: "🌲" },
+  { value: "reforestation", label: "Reforestation", icon: "🌱" },
+  { value: "vegetation_loss", label: "Vegetation Loss", icon: "🍃" },
+  { value: "mangrove_loss", label: "Mangrove Loss", icon: "🌿" },
+  
+  // Water-related
   { value: "flood", label: "Flood", icon: "🌊" },
   { value: "drought", label: "Drought", icon: "🏜️" },
-  { value: "fire", label: "Wildfire", icon: "🔥" },
-  { value: "urbanization", label: "Urbanization", icon: "🏙️" },
-  { value: "climate_change", label: "Climate Change", icon: "🌡️" },
-  { value: "desertification", label: "Desertification", icon: "🏜️" },
+  { value: "rainfall", label: "Rainfall Patterns", icon: "🌧️" },
+  { value: "water_scarcity", label: "Water Scarcity", icon: "💧" },
+  { value: "lake_drying", label: "Lake Drying", icon: "🏞️" },
+  { value: "river_changes", label: "River Changes", icon: "🏞️" },
+  { value: "wetland_loss", label: "Wetland Loss", icon: "🦆" },
   { value: "coastal_erosion", label: "Coastal Erosion", icon: "🏖️" },
+  
+  // Fire-related
+  { value: "wildfire", label: "Wildfire", icon: "🔥" },
+  { value: "bushfire", label: "Bushfire", icon: "🔥" },
+  { value: "agricultural_burning", label: "Agricultural Burning", icon: "🔥" },
+  
+  // Climate & Weather
+  { value: "climate_change", label: "Climate Change Impact", icon: "🌡️" },
+  { value: "temperature_anomaly", label: "Temperature Anomaly", icon: "🌡️" },
+  { value: "heatwave", label: "Heatwave", icon: "☀️" },
+  { value: "cyclone", label: "Cyclone/Hurricane", icon: "🌀" },
+  { value: "storm", label: "Storm Activity", icon: "⛈️" },
+  
+  // Land Degradation
+  { value: "desertification", label: "Desertification", icon: "🏜️" },
+  { value: "soil_erosion", label: "Soil Erosion", icon: "⛰️" },
+  { value: "land_degradation", label: "Land Degradation", icon: "🪨" },
+  { value: "salinization", label: "Soil Salinization", icon: "🧂" },
+  
+  // Agriculture
   { value: "agriculture", label: "Agricultural Change", icon: "🌾" },
+  { value: "crop_health", label: "Crop Health", icon: "🌾" },
+  { value: "irrigation_change", label: "Irrigation Change", icon: "💦" },
+  { value: "livestock_impact", label: "Livestock Impact", icon: "🐄" },
+  
+  // Urban & Infrastructure
+  { value: "urbanization", label: "Urbanization", icon: "🏙️" },
+  { value: "urban_sprawl", label: "Urban Sprawl", icon: "🏘️" },
+  { value: "infrastructure", label: "Infrastructure Development", icon: "🛤️" },
+  { value: "mining", label: "Mining Activity", icon: "⛏️" },
+  
+  // Biodiversity & Ecosystems
+  { value: "habitat_loss", label: "Habitat Loss", icon: "🦁" },
+  { value: "ecosystem_change", label: "Ecosystem Change", icon: "🌍" },
+  { value: "wildlife_migration", label: "Wildlife Migration", icon: "🦓" },
+  
+  // Air Quality
+  { value: "air_pollution", label: "Air Pollution", icon: "💨" },
+  { value: "dust_storms", label: "Dust Storms", icon: "🌪️" },
+  
+  // Other
+  { value: "snow_ice", label: "Snow & Ice Changes", icon: "❄️" },
+  { value: "glacier_melt", label: "Glacier Melting", icon: "🏔️" },
+  { value: "volcanic_activity", label: "Volcanic Activity", icon: "🌋" },
 ];
 
 const GeoWitness = () => {
