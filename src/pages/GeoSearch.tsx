@@ -196,10 +196,12 @@ const GeoSearch = () => {
                 
                 <div className="space-y-3">
                   {results.findings && results.findings.length > 0 ? (
-                    results.findings.map((finding: string, index: number) => (
+                    results.findings.map((finding: any, index: number) => (
                       <div key={index} className="flex items-start gap-2">
                         <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                        <p className="text-sm">{finding}</p>
+                        <p className="text-sm">
+                          {typeof finding === 'string' ? finding : finding.detail || finding.description || JSON.stringify(finding)}
+                        </p>
                       </div>
                     ))
                   ) : (
@@ -211,8 +213,10 @@ const GeoSearch = () => {
                   <div className="mt-4">
                     <p className="text-sm font-medium mb-2">Recommendations:</p>
                     <div className="space-y-2">
-                      {results.recommendations.map((rec: string, index: number) => (
-                        <p key={index} className="text-sm text-muted-foreground">{rec}</p>
+                      {results.recommendations.map((rec: any, index: number) => (
+                        <p key={index} className="text-sm text-muted-foreground">
+                          {typeof rec === 'string' ? rec : rec.detail || rec.description || JSON.stringify(rec)}
+                        </p>
                       ))}
                     </div>
                   </div>
