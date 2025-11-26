@@ -133,25 +133,28 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-73px)] bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-[calc(100vh-73px)] bg-background p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-ocean bg-clip-text text-transparent">
+            <h1 className="text-2xl md:text-4xl font-bold bg-gradient-ocean bg-clip-text text-transparent">
               Analysis Dashboard
             </h1>
-            <p className="text-muted-foreground mt-2">
+            <p className="text-muted-foreground mt-1 md:mt-2 text-sm md:text-base">
               View and export your complete analysis history
             </p>
           </div>
           <div className="flex gap-2">
             <Button
               variant="outline"
+              size="sm"
               onClick={() => exportToJSON([...analysisResults, ...searchQueries], "complete_history")}
+              className="flex-1 md:flex-none"
             >
               <Download className="h-4 w-4 mr-2" />
-              Export All (JSON)
+              <span className="hidden sm:inline">Export All (JSON)</span>
+              <span className="sm:hidden">Export</span>
             </Button>
           </div>
         </div>
@@ -203,11 +206,12 @@ const Dashboard = () => {
           </TabsList>
 
           <TabsContent value="analyses" className="space-y-4">
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => exportToCSV(analysisResults, "geowitness_analyses")}
+                className="w-full sm:w-auto"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export CSV
@@ -216,6 +220,7 @@ const Dashboard = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => exportToJSON(analysisResults, "geowitness_analyses")}
+                className="w-full sm:w-auto"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export JSON
@@ -233,29 +238,29 @@ const Dashboard = () => {
                 </Card>
               ) : (
                 analysisResults.map((result) => (
-                  <Card key={result.id} className="p-4 hover:shadow-elevated transition-shadow">
+                  <Card key={result.id} className="p-3 md:p-4 hover:shadow-elevated transition-shadow">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
                           <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium capitalize">
                             {result.event_type}
                           </span>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-xs md:text-sm text-muted-foreground">
                             {new Date(result.created_at).toLocaleDateString()}
                           </span>
                         </div>
-                        <h3 className="font-semibold mb-1">{result.region}</h3>
-                        <p className="text-sm text-muted-foreground mb-2">
+                        <h3 className="font-semibold mb-1 text-sm md:text-base">{result.region}</h3>
+                        <p className="text-xs md:text-sm text-muted-foreground mb-2">
                           {result.start_date} to {result.end_date}
                         </p>
                         {result.change_percent !== null && (
-                          <p className="text-sm">
+                          <p className="text-xs md:text-sm">
                             <span className="font-medium">Change detected:</span>{" "}
                             <span className="text-destructive font-bold">{result.change_percent}%</span>
                           </p>
                         )}
                         {result.summary && (
-                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                          <p className="text-xs md:text-sm text-muted-foreground mt-2 line-clamp-2">
                             {result.summary}
                           </p>
                         )}
@@ -268,11 +273,12 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="searches" className="space-y-4">
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => exportToCSV(searchQueries, "geosearch_queries")}
+                className="w-full sm:w-auto"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export CSV
@@ -281,6 +287,7 @@ const Dashboard = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => exportToJSON(searchQueries, "geosearch_queries")}
+                className="w-full sm:w-auto"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export JSON
@@ -298,11 +305,11 @@ const Dashboard = () => {
                 </Card>
               ) : (
                 searchQueries.map((query) => (
-                  <Card key={query.id} className="p-4 hover:shadow-elevated transition-shadow">
+                  <Card key={query.id} className="p-3 md:p-4 hover:shadow-elevated transition-shadow">
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold">{query.query}</h3>
-                        <span className="text-xs text-muted-foreground">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                        <h3 className="font-semibold text-sm md:text-base break-words">{query.query}</h3>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
                           {new Date(query.created_at).toLocaleDateString()}
                         </span>
                       </div>
@@ -312,7 +319,7 @@ const Dashboard = () => {
                         </span>
                       )}
                       {query.ai_interpretation && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">
+                        <p className="text-xs md:text-sm text-muted-foreground line-clamp-2">
                           {query.ai_interpretation}
                         </p>
                       )}

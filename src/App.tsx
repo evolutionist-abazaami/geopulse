@@ -27,6 +27,7 @@ const App = () => (
               <Route path="/" element={<Home />} />
               <Route path="/geowitness" element={<GeoWitness />} />
               <Route path="/geosearch" element={<GeoSearch />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="*" element={<NotFound />} />

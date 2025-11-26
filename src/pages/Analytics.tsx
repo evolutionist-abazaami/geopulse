@@ -92,50 +92,52 @@ const Analytics = () => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-73px)] bg-background p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-[calc(100vh-73px)] bg-background p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Analytics Dashboard</h1>
-          <p className="text-muted-foreground">
-            Comprehensive visualization of your environmental analysis data
+          <h1 className="text-2xl md:text-4xl font-bold bg-gradient-ocean bg-clip-text text-transparent">
+            Analytics Dashboard
+          </h1>
+          <p className="text-muted-foreground mt-1 md:mt-2 text-sm md:text-base">
+            Comprehensive data visualization and insights
           </p>
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-primary" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          <Card className="p-4 md:p-6">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="h-5 w-5 md:h-6 md:w-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total Analyses</p>
-                <p className="text-2xl font-bold">{analysisResults.length}</p>
+                <p className="text-xs md:text-sm text-muted-foreground">Total Analyses</p>
+                <p className="text-xl md:text-2xl font-bold">{analysisResults.length}</p>
               </div>
             </div>
           </Card>
 
-          <Card className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-secondary/10 flex items-center justify-center">
-                <BarChart3 className="h-6 w-6 text-secondary" />
+          <Card className="p-4 md:p-6">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                <BarChart3 className="h-5 w-5 md:h-6 md:w-6 text-secondary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Searches</p>
-                <p className="text-2xl font-bold">{searchQueries.length}</p>
+                <p className="text-xs md:text-sm text-muted-foreground">Searches</p>
+                <p className="text-xl md:text-2xl font-bold">{searchQueries.length}</p>
               </div>
             </div>
           </Card>
 
-          <Card className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
-                <PieChart className="h-6 w-6 text-accent" />
+          <Card className="p-4 md:p-6">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+                <PieChart className="h-5 w-5 md:h-6 md:w-6 text-accent" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Avg Change</p>
-                <p className="text-2xl font-bold">
+                <p className="text-xs md:text-sm text-muted-foreground">Avg Change</p>
+                <p className="text-xl md:text-2xl font-bold">
                   {analysisResults.length > 0
                     ? Math.round(
                         analysisResults.reduce((acc, item) => acc + (item.change_percent || 0), 0) /
@@ -148,14 +150,14 @@ const Analytics = () => {
             </div>
           </Card>
 
-          <Card className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-primary" />
+          <Card className="p-4 md:p-6">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="h-5 w-5 md:h-6 md:w-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Avg Confidence</p>
-                <p className="text-2xl font-bold">
+                <p className="text-xs md:text-sm text-muted-foreground">Avg Confidence</p>
+                <p className="text-xl md:text-2xl font-bold">
                   {searchQueries.length > 0
                     ? Math.round(
                         searchQueries.reduce((acc, item) => acc + (item.confidence_level || 0), 0) /
@@ -171,15 +173,15 @@ const Analytics = () => {
 
         {/* Charts */}
         <Tabs defaultValue="trends" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
-            <TabsTrigger value="trends">Trends</TabsTrigger>
-            <TabsTrigger value="distribution">Distribution</TabsTrigger>
-            <TabsTrigger value="comparison">Comparison</TabsTrigger>
-            <TabsTrigger value="confidence">Confidence</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 gap-1">
+            <TabsTrigger value="trends" className="text-xs md:text-sm">Trends</TabsTrigger>
+            <TabsTrigger value="distribution" className="text-xs md:text-sm">Distribution</TabsTrigger>
+            <TabsTrigger value="comparison" className="text-xs md:text-sm">Comparison</TabsTrigger>
+            <TabsTrigger value="confidence" className="text-xs md:text-sm">Confidence</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="trends" className="space-y-4 mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <TabsContent value="trends" className="space-y-4 mt-4 md:mt-6">
+            <div className="grid grid-cols-1 gap-4">
               <TrendChart
                 data={activityTrend}
                 title="Change Percentage Over Time"
@@ -193,8 +195,8 @@ const Analytics = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="distribution" className="space-y-4 mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <TabsContent value="distribution" className="space-y-4 mt-4 md:mt-6">
+            <div className="grid grid-cols-1 gap-4">
               <DistributionChart
                 data={eventDistribution}
                 title="Event Type Distribution"
@@ -208,7 +210,7 @@ const Analytics = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="comparison" className="space-y-4 mt-6">
+          <TabsContent value="comparison" className="space-y-4 mt-4 md:mt-6">
             <ComparisonChart
               data={changeComparison}
               title="Environmental Change Comparison (Before vs After)"
@@ -217,7 +219,7 @@ const Analytics = () => {
             />
           </TabsContent>
 
-          <TabsContent value="confidence" className="space-y-4 mt-6">
+          <TabsContent value="confidence" className="space-y-4 mt-4 md:mt-6">
             <TrendChart
               data={confidenceTrend}
               title="AI Confidence Level Over Time"
