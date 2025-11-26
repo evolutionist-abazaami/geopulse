@@ -149,9 +149,7 @@ const GeoWitness = () => {
     toast.info("Starting AI-powered satellite analysis...");
 
     try {
-      const coordinates = { lat: 6.5, lng: -1.5 }; // Default Ghana coordinates
-      
-      // Get current session for authenticated requests
+      const coordinates = { lat: 6.5, lng: -1.5 };
       const { data: { session } } = await supabase.auth.getSession();
       
       const response = await fetch(
@@ -179,12 +177,10 @@ const GeoWitness = () => {
       const data = await response.json();
       setResults(data);
       
-      // Update map visualization
       if (coordinates) {
         setMapCenter([coordinates.lat, coordinates.lng]);
         setMapZoom(10);
         
-        // Add marker for analyzed location
         setMapMarkers([{
           lat: coordinates.lat,
           lng: coordinates.lng,
@@ -192,7 +188,6 @@ const GeoWitness = () => {
           color: "#ef4444"
         }]);
         
-        // Create polygon to show affected area (example boundary)
         const boundarySize = 0.1;
         setMapPolygons([{
           coordinates: [
@@ -221,155 +216,153 @@ const GeoWitness = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-73px)] flex flex-col bg-background">
-      <div className="flex-1 flex overflow-hidden">
-        {/* Map Container */}
-        <div className="flex-1 relative">
-          <InteractiveMap 
-            center={mapCenter} 
-            zoom={mapZoom} 
-            className="h-full w-full"
-            markers={mapMarkers}
-            polygons={mapPolygons}
-          />
+    <div className="h-[calc(100vh-73px)] flex flex-col lg:flex-row bg-background overflow-hidden">
+      {/* Map Container */}
+      <div className="flex-1 relative h-[50vh] lg:h-full order-2 lg:order-1">
+        <InteractiveMap 
+          center={mapCenter} 
+          zoom={mapZoom} 
+          className="h-full w-full"
+          markers={mapMarkers}
+          polygons={mapPolygons}
+        />
 
-          {/* Controls Overlay */}
-          <div className="absolute top-6 left-6 z-[1000] space-y-4">
-            <Card className="p-6 w-80 bg-card/95 backdrop-blur shadow-elevated">
-              <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                <Play className="h-5 w-5 text-primary" />
-                Analysis Controls
-              </h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Event Type</label>
-                  <Select value={eventType} onValueChange={setEventType}>
-                    <SelectTrigger className="bg-card">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[400px] overflow-y-auto">
-                      {eventTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          <span className="flex items-center gap-2">
-                            <span>{type.icon}</span>
-                            {type.label}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Region</label>
-                  <Select value={region} onValueChange={setRegion}>
-                    <SelectTrigger className="bg-card">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[400px] overflow-y-auto">
-                      {africanRegions.map((r) => (
-                        <SelectItem key={r} value={r}>{r}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Start Date</label>
-                    <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">End Date</label>
-                    <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                  </div>
-                </div>
-
-                <Button 
-                  className="w-full bg-gradient-ocean hover:opacity-90"
-                  onClick={runAnalysis}
-                  disabled={isAnalyzing}
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Analyzing with AI...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4 mr-2" />
-                      Run AI Analysis
-                    </>
-                  )}
-                </Button>
-                
-                <p className="text-xs text-muted-foreground text-center">
-                  Powered by Google Earth Engine & AI
-                </p>
-              </div>
-            </Card>
-          </div>
-        </div>
-
-        {/* Results Panel */}
-        {results && (
-          <div className="w-96 bg-card border-l border-border p-6 overflow-y-auto animate-slide-in-right">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold">Analysis Results</h2>
-                <Button variant="ghost" size="icon">
-                  <Download className="h-5 w-5" />
-                </Button>
+        {/* Controls Overlay */}
+        <div className="lg:absolute static lg:top-6 lg:left-6 z-[1000] space-y-4 p-4 lg:p-0">
+          <Card className="p-4 lg:p-6 w-full lg:w-80 bg-card/95 backdrop-blur shadow-elevated">
+            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+              <Play className="h-5 w-5 text-primary" />
+              Analysis Controls
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Event Type</label>
+                <Select value={eventType} onValueChange={setEventType}>
+                  <SelectTrigger className="bg-card">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[400px] overflow-y-auto">
+                    {eventTypes.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        <span className="flex items-center gap-2">
+                          <span>{type.icon}</span>
+                          {type.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
+              <div>
+                <label className="text-sm font-medium mb-2 block">Region</label>
+                <Select value={region} onValueChange={setRegion}>
+                  <SelectTrigger className="bg-card">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[400px] overflow-y-auto">
+                    {africanRegions.map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <p className="font-semibold text-destructive">High Impact Change Detected</p>
-                  <p className="text-sm text-muted-foreground mt-1">Immediate attention recommended</p>
+                  <label className="text-sm font-medium mb-2 block">Start Date</label>
+                  <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">End Date</label>
+                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Event Type</p>
-                  <p className="font-semibold capitalize">{results.eventType}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Area Analyzed</p>
-                  <p className="font-semibold">{results.area}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Change Detected</p>
-                  <p className="text-3xl font-bold text-destructive">{results.changePercent}%</p>
-                </div>
-
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Summary</p>
-                  <p className="text-sm leading-relaxed">{results.summary}</p>
-                </div>
-
-                {results.fullAnalysis && (
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">Detailed Analysis</p>
-                    <div className="text-sm leading-relaxed whitespace-pre-line max-h-60 overflow-y-auto">
-                      {results.fullAnalysis}
-                    </div>
-                  </div>
+              <Button 
+                className="w-full bg-gradient-ocean hover:opacity-90"
+                onClick={runAnalysis}
+                disabled={isAnalyzing}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Analyzing with AI...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Run AI Analysis
+                  </>
                 )}
+              </Button>
+              
+              <p className="text-xs text-muted-foreground text-center">
+                Powered by Google Earth Engine & AI
+              </p>
+            </div>
+          </Card>
+        </div>
+      </div>
 
-                <Button className="w-full" variant="outline">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download Report (PDF)
-                </Button>
+      {/* Results Panel */}
+      {results && (
+        <div className="w-full lg:w-96 bg-card lg:border-l border-t lg:border-t-0 border-border p-4 lg:p-6 overflow-y-auto order-3 max-h-[50vh] lg:max-h-full">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold">Analysis Results</h2>
+              <Button variant="ghost" size="icon">
+                <Download className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-destructive">High Impact Change Detected</p>
+                <p className="text-sm text-muted-foreground mt-1">Immediate attention recommended</p>
               </div>
             </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Event Type</p>
+                <p className="font-semibold capitalize">{results.eventType}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Area Analyzed</p>
+                <p className="font-semibold">{results.area}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Change Detected</p>
+                <p className="text-3xl font-bold text-destructive">{results.changePercent}%</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Summary</p>
+                <p className="text-sm leading-relaxed">{results.summary}</p>
+              </div>
+
+              {results.fullAnalysis && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-2">Detailed Analysis</p>
+                  <div className="text-sm leading-relaxed whitespace-pre-line max-h-60 overflow-y-auto">
+                    {results.fullAnalysis}
+                  </div>
+                </div>
+              )}
+
+              <Button className="w-full" variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Download Report (PDF)
+              </Button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
