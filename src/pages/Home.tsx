@@ -31,7 +31,7 @@ const Home = () => {
               Powered by AI & Satellite Imagery
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold mb-6 leading-tight">
               AI-Powered{" "}
               <span className="bg-gradient-ocean bg-clip-text text-transparent">
                 Geospatial Intelligence
@@ -39,7 +39,7 @@ const Home = () => {
               {" "}for Africa
             </h1>
             
-            <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg sm:text-xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
               Monitor environmental changes, detect deforestation, track flooding events, 
               and analyze satellite imagery with cutting-edge AI technology.
             </p>
