@@ -1,9 +1,13 @@
 import { useState } from "react";
 import InteractiveMap from "@/components/InteractiveMap";
+import LocationSearch from "@/components/LocationSearch";
+import ReportGenerator from "@/components/ReportGenerator";
+import FileUploadAnalysis from "@/components/FileUploadAnalysis";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Search, Sparkles, Loader2, MapPin } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, Sparkles, Loader2, MapPin, MousePointer, Upload, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -11,19 +15,38 @@ const GeoSearch = () => {
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<any>(null);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([9.0, 1.0]);
-  const [mapZoom, setMapZoom] = useState(6);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([5.5, 20.0]);
+  const [mapZoom, setMapZoom] = useState(4);
   const [mapMarkers, setMapMarkers] = useState<any[]>([]);
   const [mapPolygons, setMapPolygons] = useState<any[]>([]);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
+  const [activeTab, setActiveTab] = useState("search");
 
   const exampleQueries = [
-    "Show me deforestation in the Congo Basin over the past 5 years",
-    "Flooding patterns in West Africa during rainy season",
-    "Urban expansion in East African cities since 2020",
-    "Drought conditions in the Sahel region",
-    "Coastal erosion along West African coastline",
-    "Agricultural changes in the Nile Delta",
+    "Deforestation in Congo Basin 2020-2024",
+    "Flooding in Nigeria during rainy season",
+    "Urban expansion in Nairobi since 2015",
+    "Drought in Sahel region",
+    "Mining activity in South Africa",
   ];
+
+  const handleLocationSearch = (location: { name: string; lat: number; lng: number }) => {
+    setSelectedLocation(location);
+    setMapCenter([location.lat, location.lng]);
+    setMapZoom(10);
+    setQuery((prev) => {
+      if (prev.trim()) return `${prev} in ${location.name}`;
+      return `Environmental changes in ${location.name}`;
+    });
+  };
+
+  const handleMapClick = (location: { lat: number; lng: number; name: string }) => {
+    setSelectedLocation(location);
+    setMapCenter([location.lat, location.lng]);
+    setSelectionMode(false);
+    toast.success(`Selected: ${location.name}`);
+  };
 
   const handleSearch = async () => {
     if (!query.trim()) {
@@ -46,11 +69,26 @@ const GeoSearch = () => {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ query }),
+          body: JSON.stringify({ 
+            query,
+            selectedLocation: selectedLocation ? {
+              lat: selectedLocation.lat,
+              lng: selectedLocation.lng,
+              name: selectedLocation.name
+            } : null
+          }),
         }
       );
 
       if (!response.ok) {
+        if (response.status === 429) {
+          toast.error("Rate limit exceeded. Please wait a moment and try again.");
+          return;
+        }
+        if (response.status === 402) {
+          toast.error("AI credits exhausted. Please add credits to continue.");
+          return;
+        }
         throw new Error(`Search failed: ${response.statusText}`);
       }
 
@@ -81,12 +119,19 @@ const GeoSearch = () => {
             fillOpacity: 0.2
           }]);
         }
+      } else if (selectedLocation) {
+        setMapMarkers([{
+          lat: selectedLocation.lat,
+          lng: selectedLocation.lng,
+          label: selectedLocation.name,
+          color: "#0891b2"
+        }]);
       }
       
       if (session) {
-        toast.success("Analysis complete and saved to your history!");
+        toast.success("Analysis complete and saved!");
       } else {
-        toast.success("Analysis complete! Sign in to save your searches.");
+        toast.success("Analysis complete! Sign in to save searches.");
       }
     } catch (error) {
       console.error("Search error:", error);
@@ -99,147 +144,218 @@ const GeoSearch = () => {
   return (
     <div className="h-[calc(100vh-73px)] flex flex-col lg:flex-row bg-background overflow-hidden">
       {/* Map Container */}
-      <div className="flex-1 relative h-[50vh] lg:h-full order-2 lg:order-1">
+      <div className="flex-1 relative h-[40vh] lg:h-full order-2 lg:order-1">
         <InteractiveMap
           center={mapCenter} 
           zoom={mapZoom} 
           className="h-full w-full"
           markers={mapMarkers}
           polygons={mapPolygons}
+          selectionMode={selectionMode}
+          onLocationSelect={handleMapClick}
+          selectedArea={selectedLocation}
         />
 
-        {/* Search Bar Overlay */}
-        <div className="lg:absolute static lg:top-6 lg:left-1/2 lg:-translate-x-1/2 z-[1000] w-full max-w-2xl px-4 py-4 lg:py-0">
-          <Card className="p-4 bg-card/95 backdrop-blur shadow-elevated">
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  placeholder="Ask anything about environmental changes in Africa..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  className="pl-10 h-12 text-base"
+        {/* Selection Mode Indicator */}
+        {selectionMode && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000]">
+            <Card className="px-4 py-2 bg-primary text-primary-foreground flex items-center gap-2">
+              <MousePointer className="h-4 w-4" />
+              <span className="text-sm font-medium">Click on map to select location</span>
+              <Button 
+                size="sm" 
+                variant="secondary" 
+                className="ml-2 h-7"
+                onClick={() => setSelectionMode(false)}
+              >
+                Cancel
+              </Button>
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* Search Panel */}
+      <div className="w-full lg:w-[420px] bg-card lg:border-l border-b lg:border-b-0 border-border overflow-y-auto order-1 lg:order-2">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+          <TabsList className="w-full justify-start rounded-none border-b border-border p-0 h-auto bg-transparent">
+            <TabsTrigger 
+              value="search" 
+              className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3"
+            >
+              <Search className="h-4 w-4 mr-2" />
+              AI Search
+            </TabsTrigger>
+            <TabsTrigger 
+              value="upload" 
+              className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              File Upload
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="search" className="flex-1 p-4 md:p-6 space-y-4 mt-0 overflow-y-auto">
+            {/* Search Input */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Natural Language Query</label>
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Ask about environmental changes..."
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Search Location (Optional)</label>
+                <LocationSearch 
+                  onLocationSelect={handleLocationSearch}
+                  placeholder="Search any place in Africa..."
                 />
               </div>
+
+              <div className="flex items-center gap-2">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted-foreground">or</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setSelectionMode(!selectionMode)}
+              >
+                <MousePointer className="h-4 w-4 mr-2" />
+                {selectionMode ? "Cancel Selection" : "Select Location on Map"}
+              </Button>
+
+              {selectedLocation && (
+                <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                  <p className="text-sm font-medium text-primary">Selected Location:</p>
+                  <p className="text-sm truncate">{selectedLocation.name}</p>
+                </div>
+              )}
+
               <Button 
-                size="lg"
+                className="w-full bg-gradient-ocean hover:opacity-90"
                 onClick={handleSearch}
                 disabled={isSearching || !query.trim()}
-                className="bg-gradient-ocean hover:opacity-90 px-6"
               >
                 {isSearching ? (
                   <>
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Analyzing...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-5 w-5 mr-2" />
-                    Search
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Search with AI
                   </>
                 )}
               </Button>
-            </div>
 
-            {!results && (
-              <div className="mt-4 pt-4 border-t border-border">
-                <p className="text-xs text-muted-foreground mb-2">Example queries:</p>
-                <div className="flex flex-wrap gap-2">
-                  {exampleQueries.map((example, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setQuery(example)}
-                      className="text-xs px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {example}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            <p className="text-xs text-muted-foreground text-center mt-3">
-              Powered by AI & satellite data
-            </p>
-          </Card>
-        </div>
-      </div>
-
-      {/* Results Panel */}
-      {results && (
-        <div className="w-full lg:w-96 bg-card lg:border-l border-t lg:border-t-0 border-border p-4 lg:p-6 overflow-y-auto order-3 max-h-[50vh] lg:max-h-full">
-          <div className="space-y-6">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-bold">AI Analysis</h2>
-            </div>
-
-            <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
-              <p className="text-sm font-medium text-primary mb-1">Query Interpretation</p>
-              <p className="text-sm text-muted-foreground">{results.interpretation}</p>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="font-semibold">Findings</p>
-                <span className="text-xs px-2 py-1 rounded-full bg-secondary/20 text-secondary font-medium">
-                  {results.confidenceLevel}% confidence
-                </span>
-              </div>
-              
-              <div className="space-y-3">
-                {results.findings && results.findings.length > 0 ? (
-                  results.findings.map((finding: any, index: number) => (
-                    <div key={index} className="flex items-start gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                      <p className="text-sm">
-                        {typeof finding === 'string' ? finding : finding.detail || finding.description || JSON.stringify(finding)}
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">No specific findings at this time</p>
-                )}
-              </div>
-
-              {results.recommendations && results.recommendations.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-sm font-medium mb-2">Recommendations:</p>
-                  <div className="space-y-2">
-                    {results.recommendations.map((rec: any, index: number) => (
-                      <p key={index} className="text-sm text-muted-foreground">
-                        {typeof rec === 'string' ? rec : rec.detail || rec.description || JSON.stringify(rec)}
-                      </p>
+              {/* Example Queries */}
+              {!results && (
+                <div className="pt-2">
+                  <p className="text-xs text-muted-foreground mb-2">Example queries:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {exampleQueries.map((example, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setQuery(example)}
+                        className="text-xs px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {example}
+                      </button>
                     ))}
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="pt-4 border-t border-border space-y-2">
-              <Button variant="outline" className="w-full justify-start" size="sm">
-                <MapPin className="h-4 w-4 mr-2" />
-                View on Map
-              </Button>
-              <Button variant="outline" className="w-full" size="sm">
-                Refine Search
-              </Button>
-            </div>
+            {/* Results */}
+            {results && (
+              <div className="space-y-4 pt-4 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <h4 className="font-bold">AI Analysis</h4>
+                </div>
 
-            <Button 
-              variant="ghost" 
-              className="w-full"
-              onClick={() => {
-                setResults(null);
-                setQuery("");
-              }}
-            >
-              New Search
-            </Button>
-          </div>
-        </div>
-      )}
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+                  <p className="text-xs font-medium text-primary mb-1">Query Interpretation</p>
+                  <p className="text-sm text-muted-foreground">{results.interpretation}</p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <p className="font-medium text-sm">Findings</p>
+                  <span className="text-xs px-2 py-1 rounded-full bg-secondary/20 text-secondary font-medium">
+                    {results.confidenceLevel}% confidence
+                  </span>
+                </div>
+                
+                <div className="space-y-2">
+                  {results.findings && results.findings.length > 0 ? (
+                    results.findings.slice(0, 5).map((finding: any, index: number) => (
+                      <div key={index} className="flex items-start gap-2">
+                        <div className="h-2 w-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                        <p className="text-sm">
+                          {typeof finding === 'string' ? finding : finding.detail || finding.description || JSON.stringify(finding)}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No specific findings</p>
+                  )}
+                </div>
+
+                {results.recommendations && results.recommendations.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Recommendations:</p>
+                    <div className="space-y-1">
+                      {results.recommendations.slice(0, 3).map((rec: any, index: number) => (
+                        <p key={index} className="text-sm text-muted-foreground">
+                          • {typeof rec === 'string' ? rec : rec.detail || JSON.stringify(rec)}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <ReportGenerator 
+                  analysisData={results}
+                  region={selectedLocation?.name}
+                />
+
+                <Button 
+                  variant="ghost" 
+                  className="w-full"
+                  onClick={() => {
+                    setResults(null);
+                    setQuery("");
+                    setSelectedLocation(null);
+                    setMapMarkers([]);
+                    setMapPolygons([]);
+                  }}
+                >
+                  New Search
+                </Button>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="upload" className="flex-1 p-4 md:p-6 mt-0 overflow-y-auto">
+            <FileUploadAnalysis />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 };
