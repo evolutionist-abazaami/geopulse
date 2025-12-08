@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Download, FileText, Loader2 } from "lucide-react";
+import { Download, FileText, Loader2, Image, Check } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import jsPDF from "jspdf";
 
 interface ReportGeneratorProps {
   analysisData: any;
@@ -14,210 +16,344 @@ interface ReportGeneratorProps {
 const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorProps) => {
   const [reportType, setReportType] = useState<"professional" | "simple">("simple");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStep, setGenerationStep] = useState("");
+  const [includeImages, setIncludeImages] = useState(true);
 
-  const generateReport = async () => {
+  const generateVisualization = async (type: string): Promise<string | null> => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-visualization`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            visualizationType: type,
+            region: region || analysisData?.region,
+            eventType: eventType || analysisData?.eventType,
+            data: analysisData,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        console.warn(`Visualization generation failed for ${type}`);
+        return null;
+      }
+
+      const data = await response.json();
+      return data.imageUrl || null;
+    } catch (error) {
+      console.error(`Error generating ${type} visualization:`, error);
+      return null;
+    }
+  };
+
+  const loadImageAsBase64 = async (dataUrl: string): Promise<{ data: string; width: number; height: number } | null> => {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        resolve({
+          data: dataUrl,
+          width: img.width,
+          height: img.height
+        });
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    });
+  };
+
+  const generatePDFReport = async () => {
     if (!analysisData) {
       toast.error("No analysis data available");
       return;
     }
 
     setIsGenerating(true);
+    const isSimple = reportType === "simple";
 
     try {
-      const isSimple = reportType === "simple";
-      const date = new Date().toLocaleString();
+      // Generate visualizations if enabled
+      let mapImage: string | null = null;
+      let chartImage: string | null = null;
 
-      let report = "";
-
-      if (isSimple) {
-        report = `
-═══════════════════════════════════════════════════════════
-         GEOPULSE ENVIRONMENTAL ANALYSIS REPORT
-               Simple Summary Version
-═══════════════════════════════════════════════════════════
-
-📅 Date: ${date}
-📍 Location: ${region || analysisData.region || "Africa"}
-🔍 Event Type: ${eventType || analysisData.eventType || "Environmental Analysis"}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📊 WHAT WE FOUND
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-${analysisData.summary || "Analysis complete. Please review the detailed findings below."}
-
-📈 Change Detected: ${analysisData.changePercent || analysisData.change_percent || "N/A"}%
-📐 Area Analyzed: ${analysisData.area || analysisData.area_analyzed || "N/A"}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💡 KEY POINTS (Easy to Understand)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-${(analysisData.findings || analysisData.recommendations || [])
-  .map((item: string, i: number) => `  ${i + 1}. ${item}`)
-  .join("\n") || "  • Environmental changes detected in the analyzed area"}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🎯 WHAT THIS MEANS FOR YOU
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-This report shows environmental changes in your area of interest.
-The changes detected may affect local ecosystems, agriculture,
-and communities. Consider sharing this report with local authorities
-or environmental organizations for further action.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🌍 Report generated by GeoPulse AI
-   www.geopulse.app
-═══════════════════════════════════════════════════════════
-        `.trim();
-      } else {
-        // Professional Report
-        report = `
-╔═══════════════════════════════════════════════════════════════════════════╗
-║                    GEOPULSE ENVIRONMENTAL ANALYSIS                        ║
-║                      Professional Technical Report                        ║
-╚═══════════════════════════════════════════════════════════════════════════╝
-
-DOCUMENT CLASSIFICATION: Environmental Assessment Report
-REPORT ID: GP-${Date.now().toString(36).toUpperCase()}
-GENERATION DATE: ${date}
-ANALYSIS FRAMEWORK: GeoPulse AI v2.0
-
-═══════════════════════════════════════════════════════════════════════════
-
-1. EXECUTIVE SUMMARY
-─────────────────────────────────────────────────────────────────────────────
-
-Region of Analysis:     ${region || analysisData.region || "Specified African Region"}
-Event Classification:   ${eventType || analysisData.eventType || "Environmental Change Detection"}
-Analysis Period:        ${analysisData.startDate || "N/A"} to ${analysisData.endDate || "N/A"}
-Confidence Index:       ${analysisData.confidenceLevel || 85}%
-Severity Assessment:    ${analysisData.severity?.toUpperCase() || "MODERATE"}
-
-${analysisData.summary || "Comprehensive environmental analysis completed for the specified parameters."}
-
-═══════════════════════════════════════════════════════════════════════════
-
-2. QUANTITATIVE METRICS
-─────────────────────────────────────────────────────────────────────────────
-
-  • Total Area Analyzed:        ${analysisData.area || analysisData.area_analyzed || "N/A"}
-  • Percentage Change:          ${analysisData.changePercent || analysisData.change_percent || "N/A"}%
-  • Geographic Coordinates:     ${analysisData.coordinates ? JSON.stringify(analysisData.coordinates) : "On file"}
-  • Temporal Resolution:        Multi-temporal analysis
-  • Spatial Resolution:         10-30m (Sentinel/Landsat derived)
-
-═══════════════════════════════════════════════════════════════════════════
-
-3. DETAILED TECHNICAL ANALYSIS
-─────────────────────────────────────────────────────────────────────────────
-
-${analysisData.fullAnalysis || analysisData.detailed_analysis || analysisData.detailedAnalysis || 
-`The analysis utilized advanced remote sensing techniques to detect and 
-quantify environmental changes within the specified region. Spectral 
-indices including NDVI (Normalized Difference Vegetation Index), NDWI 
-(Normalized Difference Water Index), and NBR (Normalized Burn Ratio) 
-were computed to assess vegetation health, water presence, and burn 
-severity respectively.
-
-Change detection was performed using a combination of image differencing 
-and machine learning classification algorithms, with validation against 
-known reference data where available.`}
-
-═══════════════════════════════════════════════════════════════════════════
-
-4. KEY FINDINGS & OBSERVATIONS
-─────────────────────────────────────────────────────────────────────────────
-
-${(analysisData.findings || analysisData.recommendations || [])
-  .map((item: string, i: number) => `  ${i + 1}. ${item}`)
-  .join("\n\n") || `  1. Significant environmental changes detected within analysis period
-  2. Spatial patterns indicate anthropogenic and natural drivers
-  3. Temporal trends suggest ongoing environmental pressure`}
-
-═══════════════════════════════════════════════════════════════════════════
-
-5. METHODOLOGY & DATA SOURCES
-─────────────────────────────────────────────────────────────────────────────
-
-Data Sources:
-${(analysisData.dataSources || ["Satellite imagery", "Environmental databases", "AI analysis"])
-  .map((s: string) => `  • ${s}`)
-  .join("\n")}
-
-Analytical Methods:
-  • Multi-spectral image analysis
-  • Time-series change detection
-  • Machine learning classification
-  • Statistical trend analysis
-  • AI-powered interpretation
-
-Quality Assurance:
-  • Cross-validation with multiple data sources
-  • Confidence interval calculation
-  • Uncertainty quantification
-
-═══════════════════════════════════════════════════════════════════════════
-
-6. RECOMMENDATIONS
-─────────────────────────────────────────────────────────────────────────────
-
-${(analysisData.recommendations || [])
-  .map((rec: string, i: number) => `  ${i + 1}. ${rec}`)
-  .join("\n\n") || `  1. Implement continuous monitoring protocols for the affected area
-  2. Engage local stakeholders in environmental protection initiatives
-  3. Consider detailed field validation of remote sensing findings
-  4. Develop mitigation strategies based on observed trends`}
-
-═══════════════════════════════════════════════════════════════════════════
-
-7. DISCLAIMER & LIMITATIONS
-─────────────────────────────────────────────────────────────────────────────
-
-This report is generated using automated satellite image analysis and AI
-interpretation. While every effort has been made to ensure accuracy, 
-results should be validated through ground-truthing and expert review
-before being used for critical decision-making.
-
-Limitations:
-  • Cloud cover may affect data availability
-  • Spatial resolution limits fine-scale detection
-  • AI interpretation subject to model training data
-
-═══════════════════════════════════════════════════════════════════════════
-
-REPORT GENERATED BY: GeoPulse AI Environmental Analysis System
-CONTACT: support@geopulse.app
-VERSION: 2.0.0
-
-╔═══════════════════════════════════════════════════════════════════════════╗
-║                    END OF PROFESSIONAL REPORT                             ║
-╚═══════════════════════════════════════════════════════════════════════════╝
-        `.trim();
+      if (includeImages) {
+        setGenerationStep("Generating map visualization...");
+        mapImage = await generateVisualization("map");
+        
+        setGenerationStep("Generating chart visualization...");
+        chartImage = await generateVisualization("chart");
       }
 
-      // Create downloadable file
-      const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `geopulse-${reportType}-report-${new Date().toISOString().split("T")[0]}.txt`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      setGenerationStep("Creating PDF report...");
 
-      toast.success(`${reportType === "professional" ? "Professional" : "Simple"} report downloaded!`);
+      // Create PDF
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4"
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      let yPos = margin;
+
+      // Helper function to add text with word wrap
+      const addWrappedText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number = 6): number => {
+        const lines = pdf.splitTextToSize(text, maxWidth);
+        pdf.text(lines, x, y);
+        return y + (lines.length * lineHeight);
+      };
+
+      // Header
+      pdf.setFillColor(8, 145, 178); // Primary color
+      pdf.rect(0, 0, pageWidth, 40, "F");
+      
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(24);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("GEOPULSE", margin, 18);
+      
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+      pdf.text("Environmental Analysis Report", margin, 28);
+      
+      pdf.setFontSize(10);
+      pdf.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - margin - 40, 28);
+
+      yPos = 50;
+
+      // Report type badge
+      pdf.setTextColor(8, 145, 178);
+      pdf.setFontSize(10);
+      pdf.text(isSimple ? "SIMPLE SUMMARY" : "PROFESSIONAL REPORT", margin, yPos);
+      yPos += 10;
+
+      // Region and Event Type
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(18);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(region || analysisData?.region || "Environmental Analysis", margin, yPos);
+      yPos += 8;
+
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Event Type: ${eventType || analysisData?.eventType || "General Analysis"}`, margin, yPos);
+      yPos += 15;
+
+      // Key Metrics Box
+      pdf.setFillColor(245, 245, 245);
+      pdf.roundedRect(margin, yPos, pageWidth - margin * 2, 25, 3, 3, "F");
+      
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(10);
+      const metricsY = yPos + 10;
+      
+      // Change Percent
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Change Detected", margin + 10, metricsY);
+      pdf.setFontSize(16);
+      pdf.setTextColor(239, 68, 68); // Red
+      pdf.text(`${analysisData?.changePercent || analysisData?.change_percent || "N/A"}%`, margin + 10, metricsY + 10);
+      
+      // Area
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(10);
+      pdf.text("Area Analyzed", margin + 60, metricsY);
+      pdf.setFontSize(12);
+      pdf.text(analysisData?.area || analysisData?.area_analyzed || "N/A", margin + 60, metricsY + 10);
+      
+      // Confidence
+      pdf.setFontSize(10);
+      pdf.text("Confidence", margin + 120, metricsY);
+      pdf.setFontSize(12);
+      pdf.setTextColor(34, 197, 94); // Green
+      pdf.text(`${analysisData?.confidenceLevel || 85}%`, margin + 120, metricsY + 10);
+      
+      yPos += 35;
+
+      // Map Visualization
+      if (mapImage) {
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Location Map", margin, yPos);
+        yPos += 5;
+        
+        try {
+          const imgData = await loadImageAsBase64(mapImage);
+          if (imgData) {
+            const imgWidth = pageWidth - margin * 2;
+            const imgHeight = (imgData.height / imgData.width) * imgWidth;
+            const maxHeight = 60;
+            const finalHeight = Math.min(imgHeight, maxHeight);
+            
+            pdf.addImage(mapImage, "PNG", margin, yPos, imgWidth, finalHeight);
+            yPos += finalHeight + 10;
+          }
+        } catch (e) {
+          console.warn("Could not add map image to PDF");
+          yPos += 5;
+        }
+      }
+
+      // Summary Section
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Summary", margin, yPos);
+      yPos += 7;
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(11);
+      pdf.setTextColor(60, 60, 60);
+      yPos = addWrappedText(
+        analysisData?.summary || "Environmental analysis complete. Please review the detailed findings.",
+        margin,
+        yPos,
+        pageWidth - margin * 2,
+        5
+      );
+      yPos += 10;
+
+      // Chart Visualization
+      if (chartImage && yPos < pageHeight - 80) {
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Trend Analysis", margin, yPos);
+        yPos += 5;
+        
+        try {
+          const imgData = await loadImageAsBase64(chartImage);
+          if (imgData) {
+            const imgWidth = pageWidth - margin * 2;
+            const imgHeight = (imgData.height / imgData.width) * imgWidth;
+            const maxHeight = 50;
+            const finalHeight = Math.min(imgHeight, maxHeight);
+            
+            pdf.addImage(chartImage, "PNG", margin, yPos, imgWidth, finalHeight);
+            yPos += finalHeight + 10;
+          }
+        } catch (e) {
+          console.warn("Could not add chart image to PDF");
+        }
+      }
+
+      // Check if we need a new page
+      if (yPos > pageHeight - 60) {
+        pdf.addPage();
+        yPos = margin;
+      }
+
+      // Findings Section
+      const findings = analysisData?.findings || analysisData?.recommendations || [];
+      if (findings.length > 0) {
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Key Findings", margin, yPos);
+        yPos += 8;
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.setTextColor(60, 60, 60);
+
+        findings.slice(0, 5).forEach((finding: any, index: number) => {
+          const text = typeof finding === "string" ? finding : finding.detail || finding.description || JSON.stringify(finding);
+          pdf.setFillColor(8, 145, 178);
+          pdf.circle(margin + 2, yPos - 1, 1.5, "F");
+          yPos = addWrappedText(text, margin + 8, yPos, pageWidth - margin * 2 - 8, 5);
+          yPos += 3;
+          
+          if (yPos > pageHeight - 30) {
+            pdf.addPage();
+            yPos = margin;
+          }
+        });
+      }
+
+      // Professional report extra sections
+      if (!isSimple) {
+        if (yPos > pageHeight - 80) {
+          pdf.addPage();
+          yPos = margin;
+        }
+
+        // Detailed Analysis
+        if (analysisData?.fullAnalysis || analysisData?.detailedAnalysis) {
+          pdf.setTextColor(0, 0, 0);
+          pdf.setFontSize(14);
+          pdf.setFont("helvetica", "bold");
+          pdf.text("Detailed Analysis", margin, yPos);
+          yPos += 8;
+
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(10);
+          pdf.setTextColor(60, 60, 60);
+          yPos = addWrappedText(
+            (analysisData?.fullAnalysis || analysisData?.detailedAnalysis).substring(0, 1500),
+            margin,
+            yPos,
+            pageWidth - margin * 2,
+            5
+          );
+          yPos += 10;
+        }
+
+        // Methodology
+        if (yPos > pageHeight - 50) {
+          pdf.addPage();
+          yPos = margin;
+        }
+
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Methodology", margin, yPos);
+        yPos += 8;
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.setTextColor(60, 60, 60);
+        yPos = addWrappedText(
+          "This analysis utilized advanced remote sensing techniques including multi-spectral satellite imagery analysis, NDVI computation for vegetation health assessment, and AI-powered pattern recognition for change detection. Data sources include Sentinel-2, Landsat, and MODIS satellite archives.",
+          margin,
+          yPos,
+          pageWidth - margin * 2,
+          5
+        );
+      }
+
+      // Footer
+      const footerY = pageHeight - 15;
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
+      
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text("Generated by GeoPulse AI Environmental Analysis System", margin, footerY);
+      pdf.text(`Page 1 of ${pdf.getNumberOfPages()}`, pageWidth - margin - 20, footerY);
+
+      // Save PDF
+      const filename = `geopulse-${reportType}-report-${new Date().toISOString().split("T")[0]}.pdf`;
+      pdf.save(filename);
+
+      toast.success(`${reportType === "professional" ? "Professional" : "Simple"} PDF report downloaded!`);
     } catch (error) {
       console.error("Report generation error:", error);
-      toast.error("Failed to generate report");
+      toast.error("Failed to generate report. Please try again.");
     } finally {
       setIsGenerating(false);
+      setGenerationStep("");
     }
   };
 
@@ -244,10 +380,34 @@ VERSION: 2.0.0
         </Select>
       </div>
 
+      <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+        <div className="flex items-center gap-2">
+          <Image className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm">Include AI visualizations</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={includeImages ? "text-primary" : "text-muted-foreground"}
+          onClick={() => setIncludeImages(!includeImages)}
+        >
+          {includeImages ? <Check className="h-4 w-4" /> : "Off"}
+        </Button>
+      </div>
+
+      {isGenerating && generationStep && (
+        <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span className="text-sm text-primary">{generationStep}</span>
+          </div>
+        </div>
+      )}
+
       <Button
         className="w-full"
         variant="outline"
-        onClick={generateReport}
+        onClick={generatePDFReport}
         disabled={isGenerating || !analysisData}
       >
         {isGenerating ? (
@@ -258,7 +418,7 @@ VERSION: 2.0.0
         ) : (
           <>
             <Download className="h-4 w-4 mr-2" />
-            Download Report
+            Download PDF Report
           </>
         )}
       </Button>
