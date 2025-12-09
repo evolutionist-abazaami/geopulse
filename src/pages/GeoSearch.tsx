@@ -1,5 +1,6 @@
 import { useState } from "react";
-import InteractiveMap from "@/components/InteractiveMap";
+import MapLibreMap, { HeatmapLayerType } from "@/components/MapLibreMap";
+import MapLayerControls from "@/components/MapLayerControls";
 import LocationSearch from "@/components/LocationSearch";
 import ReportGenerator from "@/components/ReportGenerator";
 import FileUploadAnalysis from "@/components/FileUploadAnalysis";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Sparkles, Loader2, MapPin, MousePointer, Upload, Download } from "lucide-react";
+import { Search, Sparkles, Loader2, MousePointer, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -22,6 +23,8 @@ const GeoSearch = () => {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
   const [activeTab, setActiveTab] = useState("search");
+  const [is3DEnabled, setIs3DEnabled] = useState(false);
+  const [activeHeatmapLayer, setActiveHeatmapLayer] = useState<HeatmapLayerType>("none");
 
   const exampleQueries = [
     "Deforestation in Congo Basin 2020-2024",
@@ -145,7 +148,7 @@ const GeoSearch = () => {
     <div className="h-[calc(100vh-73px)] flex flex-col lg:flex-row bg-background overflow-hidden">
       {/* Map Container */}
       <div className="flex-1 relative h-[40vh] lg:h-full order-2 lg:order-1">
-        <InteractiveMap
+        <MapLibreMap
           center={mapCenter} 
           zoom={mapZoom} 
           className="h-full w-full"
@@ -154,6 +157,16 @@ const GeoSearch = () => {
           selectionMode={selectionMode}
           onLocationSelect={handleMapClick}
           selectedArea={selectedLocation}
+          is3DEnabled={is3DEnabled}
+          activeHeatmapLayer={activeHeatmapLayer}
+        />
+
+        {/* Layer Controls */}
+        <MapLayerControls
+          is3DEnabled={is3DEnabled}
+          onToggle3D={setIs3DEnabled}
+          activeHeatmapLayer={activeHeatmapLayer}
+          onHeatmapLayerChange={setActiveHeatmapLayer}
         />
 
         {/* Selection Mode Indicator */}
