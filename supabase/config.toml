@@ -1,13 +1,13 @@
 project_id = "xcfbqenmetcnootkqdew"
 
 [functions.analyze-satellite]
-verify_jwt = false
+verify_jwt = true
 
 [functions.process-search]
-verify_jwt = false
+verify_jwt = true
 
 [functions.analyze-files]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-visualization]
-verify_jwt = false
+verify_jwt = true
