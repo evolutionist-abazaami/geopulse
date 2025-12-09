@@ -60,7 +60,7 @@ serve(async (req) => {
   }
 
   try {
-    // Check authentication first
+    // Check authentication - optional for analysis, required for saving
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
@@ -71,22 +71,18 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const authHeader = req.headers.get("authorization");
     
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Authentication required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Try to get user if token provided, but don't require it
+    let user = null;
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      // Only try to authenticate if it's not the anon key
+      if (token && !token.startsWith("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6")) {
+        const { data } = await supabase.auth.getUser(token);
+        user = data?.user || null;
+      }
     }
     
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Invalid or expired authentication token" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    console.log(`Analysis request - User: ${user?.id || 'anonymous'}`);
 
     // Parse and validate input
     const body = await req.json();
@@ -109,7 +105,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    console.log(`Analyzing ${eventType} in ${region} from ${startDate} to ${endDate} for user ${user.id}`);
+    console.log(`Analyzing ${eventType} in ${region} from ${startDate} to ${endDate}`);
 
     // Prepare comprehensive system prompt for satellite analysis
     const systemPrompt = `You are an expert environmental scientist specializing in satellite imagery analysis and geospatial data interpretation. 
@@ -202,24 +198,29 @@ ${GOOGLE_EARTH_ENGINE_KEY ? "Include Google Earth Engine data analysis." : ""}`;
       timestamp: new Date().toISOString(),
     };
 
-    // Store in database with authenticated user
-    await supabase.from("analysis_results").insert({
-      user_id: user.id,
-      event_type: eventType,
-      region: region,
-      start_date: startDate,
-      end_date: endDate,
-      area_analyzed: result.area,
-      change_percent: result.changePercent,
-      summary: result.summary,
-      ai_analysis: { 
-        fullAnalysis: result.fullAnalysis,
-        severity: result.severity,
-        recommendations: result.recommendations,
-        dataSources: result.dataSources,
-      },
-      coordinates: coordinates,
-    });
+    // Store in database only if user is authenticated
+    if (user) {
+      await supabase.from("analysis_results").insert({
+        user_id: user.id,
+        event_type: eventType,
+        region: region,
+        start_date: startDate,
+        end_date: endDate,
+        area_analyzed: result.area,
+        change_percent: result.changePercent,
+        summary: result.summary,
+        ai_analysis: { 
+          fullAnalysis: result.fullAnalysis,
+          severity: result.severity,
+          recommendations: result.recommendations,
+          dataSources: result.dataSources,
+        },
+        coordinates: coordinates,
+      });
+      console.log(`Analysis saved for user ${user.id}`);
+    } else {
+      console.log("Analysis not saved - user not authenticated");
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
