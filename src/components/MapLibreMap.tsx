@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -44,7 +44,6 @@ const MapLibreMap = ({
   className = "",
   markers = [],
   polygons = [],
-  heatmapData = [],
   onLocationSelect,
   selectionMode = false,
   selectedArea = null,
@@ -55,9 +54,10 @@ const MapLibreMap = ({
   const mapInstanceRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const clickHandlerRef = useRef<((e: maplibregl.MapMouseEvent) => void) | null>(null);
 
   // Generate simulated environmental data for Africa
-  const generateEnvironmentalData = (type: HeatmapLayerType): HeatmapPoint[] => {
+  const generateEnvironmentalData = useCallback((type: HeatmapLayerType): HeatmapPoint[] => {
     if (type === "none") return [];
     
     const africaPoints: HeatmapPoint[] = [];
@@ -68,19 +68,24 @@ const MapLibreMap = ({
       { lat: 6.5, lng: -1.5, baseIntensity: { vegetation: 0.85, temperature: 0.6, rainfall: 0.75 } },
       { lat: 7.5, lng: 4.0, baseIntensity: { vegetation: 0.75, temperature: 0.65, rainfall: 0.7 } },
       { lat: 10.0, lng: -8.0, baseIntensity: { vegetation: 0.6, temperature: 0.7, rainfall: 0.55 } },
+      { lat: 5.5, lng: -5.0, baseIntensity: { vegetation: 0.8, temperature: 0.55, rainfall: 0.8 } },
       // Central Africa - rainforest
       { lat: 0.5, lng: 18.0, baseIntensity: { vegetation: 0.95, temperature: 0.55, rainfall: 0.9 } },
       { lat: -4.0, lng: 15.0, baseIntensity: { vegetation: 0.9, temperature: 0.5, rainfall: 0.85 } },
+      { lat: 2.0, lng: 12.0, baseIntensity: { vegetation: 0.88, temperature: 0.52, rainfall: 0.82 } },
       // East Africa
       { lat: -1.3, lng: 36.8, baseIntensity: { vegetation: 0.5, temperature: 0.65, rainfall: 0.45 } },
       { lat: 9.0, lng: 38.7, baseIntensity: { vegetation: 0.35, temperature: 0.75, rainfall: 0.3 } },
+      { lat: -6.0, lng: 35.0, baseIntensity: { vegetation: 0.55, temperature: 0.6, rainfall: 0.5 } },
       // Southern Africa
       { lat: -26.0, lng: 28.0, baseIntensity: { vegetation: 0.45, temperature: 0.55, rainfall: 0.4 } },
       { lat: -19.0, lng: 25.0, baseIntensity: { vegetation: 0.3, temperature: 0.8, rainfall: 0.2 } },
+      { lat: -22.0, lng: 17.0, baseIntensity: { vegetation: 0.15, temperature: 0.85, rainfall: 0.1 } },
       // North Africa - Sahara
       { lat: 25.0, lng: 10.0, baseIntensity: { vegetation: 0.05, temperature: 0.95, rainfall: 0.05 } },
       { lat: 28.0, lng: 3.0, baseIntensity: { vegetation: 0.08, temperature: 0.9, rainfall: 0.08 } },
       { lat: 22.0, lng: 25.0, baseIntensity: { vegetation: 0.03, temperature: 0.92, rainfall: 0.03 } },
+      { lat: 30.0, lng: 0.0, baseIntensity: { vegetation: 0.1, temperature: 0.88, rainfall: 0.12 } },
     ];
 
     regions.forEach(region => {
@@ -91,11 +96,11 @@ const MapLibreMap = ({
         intensity: region.baseIntensity[type],
       });
       
-      // Add surrounding points with slight variation
-      for (let i = 0; i < 4; i++) {
-        const latOffset = (Math.random() - 0.5) * 4;
-        const lngOffset = (Math.random() - 0.5) * 4;
-        const intensityVariation = (Math.random() - 0.5) * 0.2;
+      // Add surrounding points with variation for density
+      for (let i = 0; i < 8; i++) {
+        const latOffset = (Math.random() - 0.5) * 6;
+        const lngOffset = (Math.random() - 0.5) * 6;
+        const intensityVariation = (Math.random() - 0.5) * 0.3;
         
         africaPoints.push({
           lat: region.lat + latOffset,
@@ -106,7 +111,7 @@ const MapLibreMap = ({
     });
 
     return africaPoints;
-  };
+  }, []);
 
   // Reverse geocode to get location name
   const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
@@ -132,12 +137,7 @@ const MapLibreMap = ({
 
   // Initialize map
   useEffect(() => {
-    if (!mapRef.current) return;
-    
-    // Prevent multiple initializations
-    if (mapInstanceRef.current) {
-      return;
-    }
+    if (!mapRef.current || mapInstanceRef.current) return;
 
     const map = new maplibregl.Map({
       container: mapRef.current,
@@ -189,16 +189,22 @@ const MapLibreMap = ({
       },
       center: [center[1], center[0]], // MapLibre uses [lng, lat]
       zoom: zoom,
-      pitch: is3DEnabled ? 60 : 0,
-      bearing: is3DEnabled ? -17 : 0,
+      pitch: 0,
+      bearing: 0,
       maxPitch: 85,
+      interactive: true,
     });
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
     map.addControl(new maplibregl.ScaleControl(), "bottom-left");
 
     map.on("load", () => {
+      console.log("MapLibre map loaded successfully");
       setMapLoaded(true);
+    });
+
+    map.on("error", (e) => {
+      console.error("MapLibre error:", e);
     });
 
     mapInstanceRef.current = map;
@@ -214,19 +220,22 @@ const MapLibreMap = ({
 
   // Handle 3D mode toggle
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    if (!map || !mapLoaded) return;
 
-    mapInstanceRef.current.easeTo({
+    map.easeTo({
       pitch: is3DEnabled ? 60 : 0,
       bearing: is3DEnabled ? -17 : 0,
       duration: 1000,
     });
-  }, [is3DEnabled]);
+  }, [is3DEnabled, mapLoaded]);
 
   // Update center and zoom
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
-    mapInstanceRef.current.easeTo({
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    
+    map.easeTo({
       center: [center[1], center[0]],
       zoom: zoom,
       duration: 500,
@@ -235,34 +244,40 @@ const MapLibreMap = ({
 
   // Handle selection mode clicks
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    if (!map) return;
 
-    const handleClick = async (e: maplibregl.MapMouseEvent) => {
-      if (!selectionMode || !onLocationSelect) return;
+    // Remove previous handler if exists
+    if (clickHandlerRef.current) {
+      map.off("click", clickHandlerRef.current);
+      clickHandlerRef.current = null;
+    }
 
-      const { lng, lat } = e.lngLat;
-      const locationName = await reverseGeocode(lat, lng);
-      onLocationSelect({ lat, lng, name: locationName });
-    };
+    if (selectionMode && onLocationSelect) {
+      const handleClick = async (e: maplibregl.MapMouseEvent) => {
+        const { lng, lat } = e.lngLat;
+        const locationName = await reverseGeocode(lat, lng);
+        onLocationSelect({ lat, lng, name: locationName });
+      };
 
-    if (selectionMode) {
-      mapInstanceRef.current.on("click", handleClick);
-      mapInstanceRef.current.getCanvas().style.cursor = "crosshair";
+      clickHandlerRef.current = handleClick;
+      map.on("click", handleClick);
+      map.getCanvas().style.cursor = "crosshair";
     } else {
-      mapInstanceRef.current.off("click", handleClick);
-      mapInstanceRef.current.getCanvas().style.cursor = "";
+      map.getCanvas().style.cursor = "";
     }
 
     return () => {
-      mapInstanceRef.current?.off("click", handleClick);
+      if (clickHandlerRef.current && map) {
+        map.off("click", clickHandlerRef.current);
+      }
     };
   }, [selectionMode, onLocationSelect]);
 
   // Update heatmap layer
   useEffect(() => {
-    if (!mapInstanceRef.current || !mapLoaded) return;
-
     const map = mapInstanceRef.current;
+    if (!map || !mapLoaded) return;
 
     // Remove existing heatmap layer
     if (map.getLayer("heatmap-layer")) {
@@ -277,13 +292,13 @@ const MapLibreMap = ({
     const environmentalData = generateEnvironmentalData(activeHeatmapLayer);
     
     // Color schemes for different layers
-    const colorSchemes = {
+    const colorSchemes: Record<string, string[]> = {
       vegetation: ["#f7fcb9", "#addd8e", "#31a354", "#006837"],
       temperature: ["#ffffb2", "#fecc5c", "#fd8d3c", "#e31a1c"],
       rainfall: ["#f1eef6", "#bdc9e1", "#74a9cf", "#0570b0"],
     };
 
-    const colors = colorSchemes[activeHeatmapLayer];
+    const colors = colorSchemes[activeHeatmapLayer] || colorSchemes.vegetation;
 
     // Add heatmap source and layer
     map.addSource("heatmap-source", {
@@ -307,22 +322,25 @@ const MapLibreMap = ({
       source: "heatmap-source",
       paint: {
         "heatmap-weight": ["get", "intensity"],
-        "heatmap-intensity": 1,
+        "heatmap-intensity": 1.2,
         "heatmap-color": [
           "interpolate",
           ["linear"],
           ["heatmap-density"],
           0, "rgba(0,0,0,0)",
-          0.2, colors[0],
-          0.4, colors[1],
-          0.6, colors[2],
+          0.1, colors[0],
+          0.3, colors[1],
+          0.5, colors[2],
+          0.7, colors[3],
           1, colors[3],
         ],
-        "heatmap-radius": 50,
-        "heatmap-opacity": 0.7,
+        "heatmap-radius": 40,
+        "heatmap-opacity": 0.75,
       },
     });
-  }, [activeHeatmapLayer, mapLoaded]);
+    
+    console.log(`Heatmap layer "${activeHeatmapLayer}" added with ${environmentalData.length} points`);
+  }, [activeHeatmapLayer, mapLoaded, generateEnvironmentalData]);
 
   // Update markers
   useEffect(() => {
@@ -330,7 +348,8 @@ const MapLibreMap = ({
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
 
-    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    if (!map) return;
 
     // Add new markers
     markers.forEach(marker => {
@@ -369,28 +388,30 @@ const MapLibreMap = ({
       const mapMarker = new maplibregl.Marker(el)
         .setLngLat([marker.lng, marker.lat])
         .setPopup(popup)
-        .addTo(mapInstanceRef.current!);
+        .addTo(map);
 
       markersRef.current.push(mapMarker);
     });
 
     // Fit bounds if markers exist
-    if (markers.length > 0) {
+    if (markers.length > 0 && markers.length < 10) {
       const bounds = new maplibregl.LngLatBounds();
       markers.forEach(m => bounds.extend([m.lng, m.lat]));
-      mapInstanceRef.current.fitBounds(bounds, { padding: 50, maxZoom: 12 });
+      map.fitBounds(bounds, { padding: 50, maxZoom: 12 });
     }
   }, [markers]);
 
   // Update selected area visualization
   useEffect(() => {
-    if (!mapInstanceRef.current || !mapLoaded) return;
-
     const map = mapInstanceRef.current;
+    if (!map || !mapLoaded) return;
 
     // Remove existing selection layer
     if (map.getLayer("selection-circle")) {
       map.removeLayer("selection-circle");
+    }
+    if (map.getLayer("selection-outline")) {
+      map.removeLayer("selection-outline");
     }
     if (map.getSource("selection-source")) {
       map.removeSource("selection-source");
@@ -433,6 +454,16 @@ const MapLibreMap = ({
       },
     });
 
+    map.addLayer({
+      id: "selection-outline",
+      type: "line",
+      source: "selection-source",
+      paint: {
+        "line-color": "#0891b2",
+        "line-width": 2,
+      },
+    });
+
     // Add center marker
     const el = document.createElement("div");
     el.innerHTML = `
@@ -467,22 +498,21 @@ const MapLibreMap = ({
 
   // Update polygons
   useEffect(() => {
-    if (!mapInstanceRef.current || !mapLoaded) return;
-
     const map = mapInstanceRef.current;
+    if (!map || !mapLoaded) return;
 
     // Remove existing polygon layers
-    polygons.forEach((_, index) => {
-      if (map.getLayer(`polygon-${index}`)) {
-        map.removeLayer(`polygon-${index}`);
+    for (let i = 0; i < 20; i++) {
+      if (map.getLayer(`polygon-${i}`)) {
+        map.removeLayer(`polygon-${i}`);
       }
-      if (map.getLayer(`polygon-outline-${index}`)) {
-        map.removeLayer(`polygon-outline-${index}`);
+      if (map.getLayer(`polygon-outline-${i}`)) {
+        map.removeLayer(`polygon-outline-${i}`);
       }
-      if (map.getSource(`polygon-source-${index}`)) {
-        map.removeSource(`polygon-source-${index}`);
+      if (map.getSource(`polygon-source-${i}`)) {
+        map.removeSource(`polygon-source-${i}`);
       }
-    });
+    }
 
     // Add new polygons
     polygons.forEach((polygon, index) => {
@@ -535,6 +565,19 @@ const MapLibreMap = ({
             transform: scale(2);
             opacity: 0;
           }
+        }
+        .maplibregl-ctrl-group {
+          background: hsl(var(--background)) !important;
+          border: 1px solid hsl(var(--border)) !important;
+        }
+        .maplibregl-ctrl-group button {
+          background-color: transparent !important;
+        }
+        .maplibregl-ctrl-group button:hover {
+          background-color: hsl(var(--muted)) !important;
+        }
+        .maplibregl-ctrl-group button span {
+          filter: invert(0.5);
         }
       `}</style>
     </div>
