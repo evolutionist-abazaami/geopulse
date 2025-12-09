@@ -27,7 +27,7 @@ export type Database = {
           region: string
           start_date: string
           summary: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           ai_analysis?: Json | null
@@ -41,7 +41,7 @@ export type Database = {
           region: string
           start_date: string
           summary?: string | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           ai_analysis?: Json | null
@@ -55,7 +55,7 @@ export type Database = {
           region?: string
           start_date?: string
           summary?: string | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -67,7 +67,7 @@ export type Database = {
           id: string
           query: string
           results: Json | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           ai_interpretation?: string | null
@@ -76,7 +76,7 @@ export type Database = {
           id?: string
           query: string
           results?: Json | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           ai_interpretation?: string | null
@@ -85,7 +85,7 @@ export type Database = {
           id?: string
           query?: string
           results?: Json | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
