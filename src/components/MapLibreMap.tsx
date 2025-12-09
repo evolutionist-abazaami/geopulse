@@ -132,7 +132,12 @@ const MapLibreMap = ({
 
   // Initialize map
   useEffect(() => {
-    if (!mapRef.current || mapInstanceRef.current) return;
+    if (!mapRef.current) return;
+    
+    // Prevent multiple initializations
+    if (mapInstanceRef.current) {
+      return;
+    }
 
     const map = new maplibregl.Map({
       container: mapRef.current,
@@ -199,8 +204,11 @@ const MapLibreMap = ({
     mapInstanceRef.current = map;
 
     return () => {
-      map.remove();
-      mapInstanceRef.current = null;
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        setMapLoaded(false);
+      }
     };
   }, []);
 
