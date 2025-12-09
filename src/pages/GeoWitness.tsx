@@ -5,13 +5,15 @@ import LocationSearch from "@/components/LocationSearch";
 import ReportGenerator from "@/components/ReportGenerator";
 import FileUploadAnalysis from "@/components/FileUploadAnalysis";
 import SavedLocations from "@/components/SavedLocations";
+import ComparisonMode from "@/components/ComparisonMode";
+import TimeLapseAnimation from "@/components/TimeLapseAnimation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Play, AlertTriangle, Loader2, MousePointer, Upload, ChevronDown, Star } from "lucide-react";
+import { Play, AlertTriangle, Loader2, MousePointer, Upload, ChevronDown, Star, GitCompare, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -237,19 +239,34 @@ const GeoWitness = () => {
       {/* Controls Panel */}
       <div className="w-full lg:w-[420px] bg-card lg:border-l border-b lg:border-b-0 border-border overflow-y-auto order-1 lg:order-2">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <TabsList className="w-full justify-start rounded-none border-b border-border p-0 h-auto bg-transparent">
+          <TabsList className="w-full justify-start rounded-none border-b border-border p-0 h-auto bg-transparent flex-wrap">
             <TabsTrigger 
               value="search" 
-              className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3"
+              className="flex-1 min-w-[80px] rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2 px-2 text-xs sm:text-sm"
             >
-              Location Analysis
+              <Play className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              Analysis
+            </TabsTrigger>
+            <TabsTrigger 
+              value="compare" 
+              className="flex-1 min-w-[80px] rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2 px-2 text-xs sm:text-sm"
+            >
+              <GitCompare className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              Compare
+            </TabsTrigger>
+            <TabsTrigger 
+              value="timelapse" 
+              className="flex-1 min-w-[80px] rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2 px-2 text-xs sm:text-sm"
+            >
+              <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              Time-Lapse
             </TabsTrigger>
             <TabsTrigger 
               value="upload" 
-              className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3"
+              className="flex-1 min-w-[80px] rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2 px-2 text-xs sm:text-sm"
             >
-              <Upload className="h-4 w-4 mr-2" />
-              File Upload
+              <Upload className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              Upload
             </TabsTrigger>
           </TabsList>
 
@@ -419,6 +436,25 @@ const GeoWitness = () => {
                 />
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="compare" className="flex-1 p-4 md:p-6 mt-0 overflow-y-auto">
+            <ComparisonMode 
+              onComparisonComplete={(result) => {
+                if (result?.location) {
+                  toast.success("Comparison analysis displayed on map");
+                }
+              }}
+            />
+          </TabsContent>
+
+          <TabsContent value="timelapse" className="flex-1 p-4 md:p-6 mt-0 overflow-y-auto">
+            <TimeLapseAnimation 
+              onFrameChange={(frame) => {
+                console.log("Frame changed:", frame);
+              }}
+              mapCenter={mapCenter}
+            />
           </TabsContent>
 
           <TabsContent value="upload" className="flex-1 p-4 md:p-6 mt-0 overflow-y-auto">
