@@ -1,5 +1,6 @@
 import { useState } from "react";
-import InteractiveMap from "@/components/InteractiveMap";
+import MapLibreMap, { HeatmapLayerType } from "@/components/MapLibreMap";
+import MapLayerControls from "@/components/MapLayerControls";
 import LocationSearch from "@/components/LocationSearch";
 import ReportGenerator from "@/components/ReportGenerator";
 import FileUploadAnalysis from "@/components/FileUploadAnalysis";
@@ -91,6 +92,8 @@ const GeoWitness = () => {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
   const [activeTab, setActiveTab] = useState("search");
+  const [is3DEnabled, setIs3DEnabled] = useState(false);
+  const [activeHeatmapLayer, setActiveHeatmapLayer] = useState<HeatmapLayerType>("none");
 
   const handleLocationSelect = (location: { name: string; lat: number; lng: number; bounds?: [[number, number], [number, number]] }) => {
     setRegion(location.name);
@@ -191,7 +194,7 @@ const GeoWitness = () => {
     <div className="h-[calc(100vh-73px)] flex flex-col lg:flex-row bg-background overflow-hidden">
       {/* Map Container */}
       <div className="flex-1 relative h-[40vh] lg:h-full order-2 lg:order-1">
-        <InteractiveMap 
+        <MapLibreMap 
           center={mapCenter} 
           zoom={mapZoom} 
           className="h-full w-full"
@@ -200,6 +203,16 @@ const GeoWitness = () => {
           selectionMode={selectionMode}
           onLocationSelect={handleMapClick}
           selectedArea={selectedLocation}
+          is3DEnabled={is3DEnabled}
+          activeHeatmapLayer={activeHeatmapLayer}
+        />
+
+        {/* Layer Controls */}
+        <MapLayerControls
+          is3DEnabled={is3DEnabled}
+          onToggle3D={setIs3DEnabled}
+          activeHeatmapLayer={activeHeatmapLayer}
+          onHeatmapLayerChange={setActiveHeatmapLayer}
         />
 
         {/* Selection Mode Indicator */}
