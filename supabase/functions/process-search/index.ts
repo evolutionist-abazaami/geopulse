@@ -6,13 +6,54 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Input validation helper
+function validateQuery(value: unknown): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error('Query is required and must be a non-empty string');
+  }
+  if (value.length > 1000) {
+    throw new Error('Query must be 1000 characters or less');
+  }
+  return value.trim();
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { query } = await req.json();
+    // Check authentication first
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error("Database configuration missing");
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const authHeader = req.headers.get("authorization");
+    
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid or expired authentication token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Parse and validate input
+    const body = await req.json();
+    const query = validateQuery(body.query);
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
@@ -20,7 +61,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    console.log(`Processing search query: ${query}`);
+    console.log(`Processing search query for user ${user.id}: ${query.substring(0, 100)}...`);
 
     // Prepare system prompt for natural language search
     const systemPrompt = `You are an AI assistant specialized in geospatial search and environmental data interpretation.
@@ -53,14 +94,14 @@ Consider satellite data availability and relevance.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash", // Using Flash for fast search
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
         temperature: 0.6,
         max_tokens: 2000,
-        response_format: { type: "json_object" }, // Force JSON response
+        response_format: { type: "json_object" },
       }),
     });
 
@@ -82,7 +123,6 @@ Consider satellite data availability and relevance.`;
       structuredResult = JSON.parse(interpretation);
     } catch (parseError) {
       console.error("Failed to parse AI response as JSON:", parseError);
-      // If not JSON, create structure from text
       structuredResult = {
         interpretation: interpretation.split('\n\n')[0],
         findings: interpretation.split('\n').filter((line: string) => line.trim().startsWith('-') || line.trim().startsWith('•')),
@@ -102,34 +142,18 @@ Consider satellite data availability and relevance.`;
       timestamp: new Date().toISOString(),
     };
 
-    // Store in database
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
-    if (supabaseUrl && supabaseKey) {
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      
-      const authHeader = req.headers.get("authorization");
-      let userId = null;
-      
-      if (authHeader) {
-        const token = authHeader.replace("Bearer ", "");
-        const { data: { user } } = await supabase.auth.getUser(token);
-        userId = user?.id;
-      }
-
-      await supabase.from("search_queries").insert({
-        user_id: userId,
-        query: query,
-        ai_interpretation: result.interpretation,
-        results: {
-          findings: result.findings,
-          locations: result.locations,
-          recommendations: result.recommendations,
-        },
-        confidence_level: result.confidenceLevel,
-      });
-    }
+    // Store in database with authenticated user
+    await supabase.from("search_queries").insert({
+      user_id: user.id,
+      query: query,
+      ai_interpretation: result.interpretation,
+      results: {
+        findings: result.findings,
+        locations: result.locations,
+        recommendations: result.recommendations,
+      },
+      confidence_level: result.confidenceLevel,
+    });
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -138,10 +162,11 @@ Consider satellite data availability and relevance.`;
   } catch (error) {
     console.error("Error in process-search:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    const status = errorMessage.includes("required") || errorMessage.includes("must be") ? 400 : 500;
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { 
-        status: 500,
+        status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );

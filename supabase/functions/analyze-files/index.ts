@@ -6,13 +6,126 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Input validation helpers
+const MAX_FILES = 10;
+const MAX_FILE_SIZE_MB = 10;
+const ALLOWED_REPORT_TYPES = ['simple', 'professional'];
+
+interface FileInput {
+  name: string;
+  type: string;
+  size: number;
+  data: string;
+}
+
+function validateFiles(value: unknown): FileInput[] {
+  if (!Array.isArray(value)) {
+    throw new Error('Files must be an array');
+  }
+  if (value.length === 0) {
+    throw new Error('At least one file is required');
+  }
+  if (value.length > MAX_FILES) {
+    throw new Error(`Maximum ${MAX_FILES} files allowed`);
+  }
+  
+  const validatedFiles: FileInput[] = [];
+  
+  for (let i = 0; i < value.length; i++) {
+    const file = value[i];
+    if (typeof file !== 'object' || file === null) {
+      throw new Error(`File at index ${i} is invalid`);
+    }
+    
+    const f = file as Record<string, unknown>;
+    
+    if (typeof f.name !== 'string' || f.name.trim().length === 0) {
+      throw new Error(`File at index ${i} must have a valid name`);
+    }
+    if (f.name.length > 255) {
+      throw new Error(`File name at index ${i} must be 255 characters or less`);
+    }
+    
+    if (typeof f.type !== 'string') {
+      throw new Error(`File at index ${i} must have a valid type`);
+    }
+    
+    if (typeof f.size !== 'number' || f.size <= 0) {
+      throw new Error(`File at index ${i} must have a valid size`);
+    }
+    if (f.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      throw new Error(`File "${f.name}" exceeds maximum size of ${MAX_FILE_SIZE_MB}MB`);
+    }
+    
+    if (typeof f.data !== 'string' || f.data.length === 0) {
+      throw new Error(`File at index ${i} must have valid data`);
+    }
+    // Limit base64 data size (roughly 1.37x the file size)
+    const maxBase64Size = MAX_FILE_SIZE_MB * 1024 * 1024 * 1.4;
+    if (f.data.length > maxBase64Size) {
+      throw new Error(`File "${f.name}" data exceeds maximum allowed size`);
+    }
+    
+    validatedFiles.push({
+      name: f.name.trim(),
+      type: f.type,
+      size: f.size,
+      data: f.data,
+    });
+  }
+  
+  return validatedFiles;
+}
+
+function validateReportType(value: unknown): string {
+  if (typeof value !== 'string') {
+    return 'simple'; // Default
+  }
+  const normalized = value.toLowerCase().trim();
+  if (!ALLOWED_REPORT_TYPES.includes(normalized)) {
+    throw new Error(`Report type must be one of: ${ALLOWED_REPORT_TYPES.join(', ')}`);
+  }
+  return normalized;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { files, reportType } = await req.json();
+    // Check authentication first
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error("Database configuration missing");
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const authHeader = req.headers.get("authorization");
+    
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid or expired authentication token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Parse and validate input
+    const body = await req.json();
+    const files = validateFiles(body.files);
+    const reportType = validateReportType(body.reportType);
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
@@ -20,18 +133,18 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    console.log(`Analyzing ${files.length} files with report type: ${reportType}`);
+    console.log(`Analyzing ${files.length} files with report type: ${reportType} for user ${user.id}`);
 
     // Prepare file descriptions for AI
-    const fileDescriptions = files.map((f: any) => ({
+    const fileDescriptions = files.map((f) => ({
       name: f.name,
       type: f.type,
       size: `${(f.size / 1024).toFixed(1)} KB`,
     }));
 
     // For images, we'll use the vision capability
-    const imageFiles = files.filter((f: any) => f.type.startsWith("image/"));
-    const dataFiles = files.filter((f: any) => !f.type.startsWith("image/"));
+    const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+    const dataFiles = files.filter((f) => !f.type.startsWith("image/"));
 
     const isSimple = reportType === "simple";
 
@@ -65,19 +178,19 @@ Return your analysis as JSON with this structure:
 }`;
 
     // Build messages array
-    const messages: any[] = [
+    const messages: unknown[] = [
       { role: "system", content: systemPrompt }
     ];
 
     // If there are image files, include them in the message
     if (imageFiles.length > 0) {
-      const content: any[] = [
+      const content: unknown[] = [
         { 
           type: "text", 
           text: `Analyze these environmental/geospatial files for environmental changes and patterns:
 
 Files being analyzed:
-${fileDescriptions.map((f: any) => `- ${f.name} (${f.type}, ${f.size})`).join('\n')}
+${fileDescriptions.map((f) => `- ${f.name} (${f.type}, ${f.size})`).join('\n')}
 
 Please provide a comprehensive ${isSimple ? 'simple, easy-to-understand' : 'professional technical'} analysis.`
         }
@@ -93,15 +206,16 @@ Please provide a comprehensive ${isSimple ? 'simple, easy-to-understand' : 'prof
 
       messages.push({ role: "user", content });
     } else {
-      // Text/data files only
+      // Text/data files only - limit sample data size
+      const sampleData = dataFiles.length > 0 ? dataFiles[0].data.substring(0, 500) : '';
       messages.push({
         role: "user",
         content: `Analyze these environmental/geospatial data files:
 
 Files being analyzed:
-${fileDescriptions.map((f: any) => `- ${f.name} (${f.type}, ${f.size})`).join('\n')}
+${fileDescriptions.map((f) => `- ${f.name} (${f.type}, ${f.size})`).join('\n')}
 
-${dataFiles.length > 0 ? `Sample data from first file: ${dataFiles[0].data.substring(0, 500)}...` : ''}
+${sampleData ? `Sample data from first file: ${sampleData}...` : ''}
 
 Please provide a comprehensive ${isSimple ? 'simple, easy-to-understand' : 'professional technical'} environmental analysis based on typical patterns and implications of this type of data.`
       });
@@ -171,35 +285,18 @@ Please provide a comprehensive ${isSimple ? 'simple, easy-to-understand' : 'prof
       timestamp: new Date().toISOString(),
     };
 
-    // Optionally store in database
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
-    if (supabaseUrl && supabaseKey) {
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      
-      const authHeader = req.headers.get("authorization");
-      let userId = null;
-      
-      if (authHeader) {
-        const token = authHeader.replace("Bearer ", "");
-        const { data: { user } } = await supabase.auth.getUser(token);
-        userId = user?.id;
-      }
-
-      // Store as a search query for now
-      await supabase.from("search_queries").insert({
-        user_id: userId,
-        query: `File analysis: ${fileDescriptions.map((f: any) => f.name).join(', ')}`,
-        ai_interpretation: result.summary,
-        results: {
-          findings: result.findings,
-          recommendations: result.recommendations,
-          filesAnalyzed: fileDescriptions,
-        },
-        confidence_level: result.confidenceLevel,
-      });
-    }
+    // Store in database with authenticated user
+    await supabase.from("search_queries").insert({
+      user_id: user.id,
+      query: `File analysis: ${fileDescriptions.map((f) => f.name).join(', ')}`,
+      ai_interpretation: result.summary,
+      results: {
+        findings: result.findings,
+        recommendations: result.recommendations,
+        filesAnalyzed: fileDescriptions,
+      },
+      confidence_level: result.confidenceLevel,
+    });
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -208,10 +305,11 @@ Please provide a comprehensive ${isSimple ? 'simple, easy-to-understand' : 'prof
   } catch (error) {
     console.error("Error in analyze-files:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    const status = errorMessage.includes("required") || errorMessage.includes("must be") || errorMessage.includes("exceeds") ? 400 : 500;
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { 
-        status: 500,
+        status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
