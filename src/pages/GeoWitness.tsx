@@ -3,12 +3,14 @@ import InteractiveMap from "@/components/InteractiveMap";
 import LocationSearch from "@/components/LocationSearch";
 import ReportGenerator from "@/components/ReportGenerator";
 import FileUploadAnalysis from "@/components/FileUploadAnalysis";
+import SavedLocations from "@/components/SavedLocations";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Play, AlertTriangle, Loader2, MousePointer, Upload } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Play, AlertTriangle, Loader2, MousePointer, Upload, ChevronDown, Star } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -332,6 +334,25 @@ const GeoWitness = () => {
                 </Button>
               </div>
             </div>
+
+            {/* Saved Locations */}
+            <Collapsible defaultOpen={false}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between px-0 hover:bg-transparent">
+                  <span className="flex items-center gap-2 font-bold text-lg">
+                    <Star className="h-5 w-5 text-primary" />
+                    Watchlist
+                  </span>
+                  <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-2">
+                <SavedLocations 
+                  onLocationSelect={handleLocationSelect}
+                  currentLocation={selectedLocation}
+                />
+              </CollapsibleContent>
+            </Collapsible>
 
             {/* Results */}
             {results && (

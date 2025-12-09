@@ -59,6 +59,126 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      comparison_results: {
+        Row: {
+          ai_analysis: Json | null
+          comparison_summary: string | null
+          coordinates: Json | null
+          created_at: string
+          event_type: string
+          id: string
+          location_name: string
+          period1_change: number | null
+          period1_end: string
+          period1_start: string
+          period2_change: number | null
+          period2_end: string
+          period2_start: string
+          user_id: string
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          comparison_summary?: string | null
+          coordinates?: Json | null
+          created_at?: string
+          event_type: string
+          id?: string
+          location_name: string
+          period1_change?: number | null
+          period1_end: string
+          period1_start: string
+          period2_change?: number | null
+          period2_end: string
+          period2_start: string
+          user_id: string
+        }
+        Update: {
+          ai_analysis?: Json | null
+          comparison_summary?: string | null
+          coordinates?: Json | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          location_name?: string
+          period1_change?: number | null
+          period1_end?: string
+          period1_start?: string
+          period2_change?: number | null
+          period2_end?: string
+          period2_start?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      saved_locations: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          event_types: string[] | null
+          id: string
+          last_checked_at: string | null
+          lat: number
+          lng: number
+          monitoring_enabled: boolean | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          event_types?: string[] | null
+          id?: string
+          last_checked_at?: string | null
+          lat: number
+          lng: number
+          monitoring_enabled?: boolean | null
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          event_types?: string[] | null
+          id?: string
+          last_checked_at?: string | null
+          lat?: number
+          lng?: number
+          monitoring_enabled?: boolean | null
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       search_queries: {
         Row: {
           ai_interpretation: string | null
