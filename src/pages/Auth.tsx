@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Satellite, Loader2, ArrowLeft } from "lucide-react";
 import geopulseLogo from "@/assets/geopulse-logo.png";
+import Footer from "@/components/Footer";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -421,6 +422,7 @@ const Auth = () => {
           <span>Track your environmental analyses</span>
         </div>
       </Card>
+      <Footer />
     </div>
   );
 };

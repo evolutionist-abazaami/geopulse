@@ -62,7 +62,7 @@ const Navigation = () => {
             <img 
               src={geopulseLogo} 
               alt="GeoPulse Logo" 
-              className="h-8 w-8 lg:h-10 lg:w-10 transition-transform group-hover:scale-105"
+              className="h-8 w-8 lg:h-10 lg:w-10 rounded-full transition-transform group-hover:scale-105"
             />
             <span className="text-xl lg:text-2xl font-bold bg-gradient-ocean bg-clip-text text-transparent">
               GeoPulse

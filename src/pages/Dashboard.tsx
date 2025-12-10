@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, FileText, Search, MapPin, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import Footer from "@/components/Footer";
 
 type AnalysisResult = {
   id: string;
@@ -331,6 +332,7 @@ const Dashboard = () => {
           </TabsContent>
         </Tabs>
       </div>
+      <Footer />
     </div>
   );
 };
