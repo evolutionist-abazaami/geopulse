@@ -194,8 +194,8 @@ const GeoWitness = () => {
 
   return (
     <div className="h-[calc(100vh-73px)] flex flex-col lg:flex-row bg-background overflow-hidden">
-      {/* Map Container */}
-      <div className="flex-1 relative h-[40vh] lg:h-full order-2 lg:order-1">
+      {/* Map Container - Larger on mobile for better interaction */}
+      <div className="flex-1 relative h-[50vh] sm:h-[55vh] lg:h-full order-2 lg:order-1 min-h-[300px]">
         <MapLibreMap 
           center={mapCenter} 
           zoom={mapZoom} 
@@ -207,26 +207,47 @@ const GeoWitness = () => {
           selectedArea={selectedLocation}
           is3DEnabled={is3DEnabled}
           activeHeatmapLayer={activeHeatmapLayer}
+          showFullscreenControl={true}
+          showGeolocateControl={true}
         />
 
-        {/* Layer Controls */}
-        <MapLayerControls
-          is3DEnabled={is3DEnabled}
-          onToggle3D={setIs3DEnabled}
-          activeHeatmapLayer={activeHeatmapLayer}
-          onHeatmapLayerChange={setActiveHeatmapLayer}
-        />
+        {/* Layer Controls - Responsive positioning */}
+        <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10">
+          <MapLayerControls
+            is3DEnabled={is3DEnabled}
+            onToggle3D={setIs3DEnabled}
+            activeHeatmapLayer={activeHeatmapLayer}
+            onHeatmapLayerChange={setActiveHeatmapLayer}
+          />
+        </div>
+
+        {/* Zoom to Selection Button */}
+        {selectedLocation && (
+          <div className="absolute bottom-16 right-2 sm:bottom-20 sm:right-4 z-10">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="shadow-lg"
+              onClick={() => {
+                setMapCenter([selectedLocation.lat, selectedLocation.lng]);
+                setMapZoom(12);
+              }}
+            >
+              Zoom to Selection
+            </Button>
+          </div>
+        )}
 
         {/* Selection Mode Indicator */}
         {selectionMode && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000]">
-            <Card className="px-4 py-2 bg-primary text-primary-foreground flex items-center gap-2">
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1000] sm:top-4">
+            <Card className="px-3 py-2 sm:px-4 sm:py-2 bg-primary text-primary-foreground flex items-center gap-2">
               <MousePointer className="h-4 w-4" />
-              <span className="text-sm font-medium">Click on map to select location</span>
+              <span className="text-xs sm:text-sm font-medium">Click on map to select location</span>
               <Button 
                 size="sm" 
                 variant="secondary" 
-                className="ml-2 h-7"
+                className="ml-2 h-6 sm:h-7 text-xs"
                 onClick={() => setSelectionMode(false)}
               >
                 Cancel

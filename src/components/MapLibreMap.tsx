@@ -36,6 +36,8 @@ interface MapLibreMapProps {
   selectedArea?: { lat: number; lng: number; radius?: number } | null;
   is3DEnabled?: boolean;
   activeHeatmapLayer?: HeatmapLayerType;
+  showFullscreenControl?: boolean;
+  showGeolocateControl?: boolean;
 }
 
 const MapLibreMap = ({
@@ -49,6 +51,8 @@ const MapLibreMap = ({
   selectedArea = null,
   is3DEnabled = false,
   activeHeatmapLayer = "none",
+  showFullscreenControl = false,
+  showGeolocateControl = false,
 }: MapLibreMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<maplibregl.Map | null>(null);
@@ -171,6 +175,22 @@ const MapLibreMap = ({
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
     map.addControl(new maplibregl.ScaleControl(), "bottom-left");
+
+    // Add fullscreen control if enabled
+    if (showFullscreenControl) {
+      map.addControl(new maplibregl.FullscreenControl(), "top-right");
+    }
+
+    // Add geolocate control if enabled
+    if (showGeolocateControl) {
+      map.addControl(
+        new maplibregl.GeolocateControl({
+          positionOptions: { enableHighAccuracy: true },
+          trackUserLocation: true,
+        }),
+        "top-right"
+      );
+    }
 
     map.on("load", () => {
       console.log("MapLibre map loaded successfully");
