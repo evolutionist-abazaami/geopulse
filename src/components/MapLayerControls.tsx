@@ -32,25 +32,27 @@ const MapLayerControls = ({
   const activeLayer = heatmapLayers.find(l => l.value === activeHeatmapLayer);
 
   return (
-    <Card className="absolute top-4 left-4 z-10 p-2 bg-background/95 backdrop-blur-sm border-border/50 shadow-lg">
-      <div className="flex items-center gap-2">
+    <Card className="p-1.5 sm:p-2 bg-background/95 backdrop-blur-sm border-border/50 shadow-lg">
+      <div className="flex items-center gap-1.5 sm:gap-2">
         {/* 3D Toggle */}
         <Button
           variant={is3DEnabled ? "default" : "outline"}
           size="sm"
           onClick={() => onToggle3D(!is3DEnabled)}
-          className="gap-2"
+          className="gap-1 sm:gap-2 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3"
         >
-          <Mountain className="h-4 w-4" />
-          3D Terrain
+          <Mountain className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span className="hidden xs:inline">3D</span>
+          <span className="hidden sm:inline"> Terrain</span>
         </Button>
 
         {/* Heatmap Layer Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Layers className="h-4 w-4" />
-              {activeLayer?.label || "Layers"}
+            <Button variant="outline" size="sm" className="gap-1 sm:gap-2 text-xs sm:text-sm h-8 sm:h-9 px-2 sm:px-3">
+              <Layers className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">{activeLayer?.label || "Layers"}</span>
+              <span className="sm:hidden">Layers</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-48">
