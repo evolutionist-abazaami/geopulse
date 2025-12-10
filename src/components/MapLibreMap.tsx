@@ -135,7 +135,7 @@ const MapLibreMap = ({
     return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
   };
 
-  // Initialize map
+  // Initialize map - without terrain initially to avoid DEM errors
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
@@ -150,18 +150,6 @@ const MapLibreMap = ({
             tileSize: 256,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
           },
-          terrainSource: {
-            type: "raster-dem",
-            tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
-            encoding: "terrarium",
-            tileSize: 256,
-          },
-          hillshadeSource: {
-            type: "raster-dem",
-            tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
-            encoding: "terrarium",
-            tileSize: 256,
-          },
         },
         layers: [
           {
@@ -171,21 +159,7 @@ const MapLibreMap = ({
             minzoom: 0,
             maxzoom: 19,
           },
-          {
-            id: "hillshade",
-            type: "hillshade",
-            source: "hillshadeSource",
-            paint: {
-              "hillshade-shadow-color": "#473B24",
-              "hillshade-illumination-anchor": "viewport",
-              "hillshade-exaggeration": 0.5,
-            },
-          },
         ],
-        terrain: {
-          source: "terrainSource",
-          exaggeration: 1.5,
-        },
       },
       center: [center[1], center[0]], // MapLibre uses [lng, lat]
       zoom: zoom,
@@ -218,16 +192,71 @@ const MapLibreMap = ({
     };
   }, []);
 
-  // Handle 3D mode toggle
+  // Handle 3D mode toggle - add/remove terrain dynamically
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !mapLoaded) return;
 
-    map.easeTo({
-      pitch: is3DEnabled ? 60 : 0,
-      bearing: is3DEnabled ? -17 : 0,
-      duration: 1000,
-    });
+    try {
+      if (is3DEnabled) {
+        // Add terrain sources if not present
+        if (!map.getSource("terrainSource")) {
+          map.addSource("terrainSource", {
+            type: "raster-dem",
+            tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
+            encoding: "terrarium",
+            tileSize: 256,
+          });
+        }
+        if (!map.getSource("hillshadeSource")) {
+          map.addSource("hillshadeSource", {
+            type: "raster-dem",
+            tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
+            encoding: "terrarium",
+            tileSize: 256,
+          });
+        }
+        
+        // Add hillshade layer if not present
+        if (!map.getLayer("hillshade")) {
+          map.addLayer({
+            id: "hillshade",
+            type: "hillshade",
+            source: "hillshadeSource",
+            paint: {
+              "hillshade-shadow-color": "#473B24",
+              "hillshade-illumination-anchor": "viewport",
+              "hillshade-exaggeration": 0.5,
+            },
+          });
+        }
+        
+        // Enable terrain
+        map.setTerrain({ source: "terrainSource", exaggeration: 1.5 });
+        
+        map.easeTo({
+          pitch: 60,
+          bearing: -17,
+          duration: 1000,
+        });
+      } else {
+        // Disable terrain
+        map.setTerrain(null);
+        
+        // Remove hillshade layer
+        if (map.getLayer("hillshade")) {
+          map.removeLayer("hillshade");
+        }
+        
+        map.easeTo({
+          pitch: 0,
+          bearing: 0,
+          duration: 1000,
+        });
+      }
+    } catch (error) {
+      console.error("Error toggling 3D terrain:", error);
+    }
   }, [is3DEnabled, mapLoaded]);
 
   // Update center and zoom
@@ -351,53 +380,61 @@ const MapLibreMap = ({
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    // Add new markers
+    // Add new markers with error handling for DEM issues
     markers.forEach(marker => {
-      const el = document.createElement("div");
-      el.className = "custom-marker";
-      el.innerHTML = `
-        <div style="
-          background: linear-gradient(135deg, ${marker.color || "#0891b2"}, ${marker.color || "#0891b2"}dd);
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          border: 3px solid white;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        ">
+      try {
+        const el = document.createElement("div");
+        el.className = "custom-marker";
+        el.innerHTML = `
           <div style="
-            width: 8px;
-            height: 8px;
-            background: white;
+            background: linear-gradient(135deg, ${marker.color || "#0891b2"}, ${marker.color || "#0891b2"}dd);
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
-          "></div>
-        </div>
-      `;
+            border: 3px solid white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          ">
+            <div style="
+              width: 8px;
+              height: 8px;
+              background: white;
+              border-radius: 50%;
+            "></div>
+          </div>
+        `;
 
-      const popup = new maplibregl.Popup({ offset: 25 }).setHTML(`
-        <div style="padding: 8px;">
-          <strong style="font-size: 14px;">${marker.label}</strong>
-          <p style="margin: 4px 0 0; font-size: 12px; color: #666;">
-            ${marker.lat.toFixed(4)}, ${marker.lng.toFixed(4)}
-          </p>
-        </div>
-      `);
+        const popup = new maplibregl.Popup({ offset: 25 }).setHTML(`
+          <div style="padding: 8px;">
+            <strong style="font-size: 14px;">${marker.label}</strong>
+            <p style="margin: 4px 0 0; font-size: 12px; color: #666;">
+              ${marker.lat.toFixed(4)}, ${marker.lng.toFixed(4)}
+            </p>
+          </div>
+        `);
 
-      const mapMarker = new maplibregl.Marker(el)
-        .setLngLat([marker.lng, marker.lat])
-        .setPopup(popup)
-        .addTo(map);
+        const mapMarker = new maplibregl.Marker(el)
+          .setLngLat([marker.lng, marker.lat])
+          .setPopup(popup)
+          .addTo(map);
 
-      markersRef.current.push(mapMarker);
+        markersRef.current.push(mapMarker);
+      } catch (error) {
+        console.warn("Error adding marker:", error);
+      }
     });
 
     // Fit bounds if markers exist
     if (markers.length > 0 && markers.length < 10) {
-      const bounds = new maplibregl.LngLatBounds();
-      markers.forEach(m => bounds.extend([m.lng, m.lat]));
-      map.fitBounds(bounds, { padding: 50, maxZoom: 12 });
+      try {
+        const bounds = new maplibregl.LngLatBounds();
+        markers.forEach(m => bounds.extend([m.lng, m.lat]));
+        map.fitBounds(bounds, { padding: 50, maxZoom: 12 });
+      } catch (error) {
+        console.warn("Error fitting bounds:", error);
+      }
     }
   }, [markers]);
 
@@ -406,94 +443,98 @@ const MapLibreMap = ({
     const map = mapInstanceRef.current;
     if (!map || !mapLoaded) return;
 
-    // Remove existing selection layer
-    if (map.getLayer("selection-circle")) {
-      map.removeLayer("selection-circle");
-    }
-    if (map.getLayer("selection-outline")) {
-      map.removeLayer("selection-outline");
-    }
-    if (map.getSource("selection-source")) {
-      map.removeSource("selection-source");
-    }
+    try {
+      // Remove existing selection layer
+      if (map.getLayer("selection-circle")) {
+        map.removeLayer("selection-circle");
+      }
+      if (map.getLayer("selection-outline")) {
+        map.removeLayer("selection-outline");
+      }
+      if (map.getSource("selection-source")) {
+        map.removeSource("selection-source");
+      }
 
-    if (!selectedArea) return;
+      if (!selectedArea) return;
 
-    // Create circle geometry
-    const radius = (selectedArea.radius || 5000) / 1000; // Convert to km
-    const points = 64;
-    const coords: [number, number][] = [];
-    
-    for (let i = 0; i < points; i++) {
-      const angle = (i / points) * 2 * Math.PI;
-      const dx = radius * Math.cos(angle) / 111; // Approximate degrees
-      const dy = radius * Math.sin(angle) / (111 * Math.cos(selectedArea.lat * Math.PI / 180));
-      coords.push([selectedArea.lng + dy, selectedArea.lat + dx]);
-    }
-    coords.push(coords[0]); // Close the circle
+      // Create circle geometry
+      const radius = (selectedArea.radius || 5000) / 1000; // Convert to km
+      const points = 64;
+      const coords: [number, number][] = [];
+      
+      for (let i = 0; i < points; i++) {
+        const angle = (i / points) * 2 * Math.PI;
+        const dx = radius * Math.cos(angle) / 111; // Approximate degrees
+        const dy = radius * Math.sin(angle) / (111 * Math.cos(selectedArea.lat * Math.PI / 180));
+        coords.push([selectedArea.lng + dy, selectedArea.lat + dx]);
+      }
+      coords.push(coords[0]); // Close the circle
 
-    map.addSource("selection-source", {
-      type: "geojson",
-      data: {
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "Polygon",
-          coordinates: [coords],
+      map.addSource("selection-source", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "Polygon",
+            coordinates: [coords],
+          },
         },
-      },
-    });
+      });
 
-    map.addLayer({
-      id: "selection-circle",
-      type: "fill",
-      source: "selection-source",
-      paint: {
-        "fill-color": "#0891b2",
-        "fill-opacity": 0.15,
-      },
-    });
+      map.addLayer({
+        id: "selection-circle",
+        type: "fill",
+        source: "selection-source",
+        paint: {
+          "fill-color": "#0891b2",
+          "fill-opacity": 0.15,
+        },
+      });
 
-    map.addLayer({
-      id: "selection-outline",
-      type: "line",
-      source: "selection-source",
-      paint: {
-        "line-color": "#0891b2",
-        "line-width": 2,
-      },
-    });
+      map.addLayer({
+        id: "selection-outline",
+        type: "line",
+        source: "selection-source",
+        paint: {
+          "line-color": "#0891b2",
+          "line-width": 2,
+        },
+      });
 
-    // Add center marker
-    const el = document.createElement("div");
-    el.innerHTML = `
-      <div style="position: relative;">
-        <div style="
-          position: absolute;
-          width: 40px;
-          height: 40px;
-          background: rgba(8, 145, 178, 0.3);
-          border-radius: 50%;
-          animation: pulse 1.5s ease-out infinite;
-          left: -8px;
-          top: -8px;
-        "></div>
-        <div style="
-          width: 24px;
-          height: 24px;
-          background: linear-gradient(135deg, #0891b2, #0e7490);
-          border-radius: 50%;
-          border: 3px solid white;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        "></div>
-      </div>
-    `;
+      // Add center marker
+      const el = document.createElement("div");
+      el.innerHTML = `
+        <div style="position: relative;">
+          <div style="
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: rgba(8, 145, 178, 0.3);
+            border-radius: 50%;
+            animation: pulse 1.5s ease-out infinite;
+            left: -8px;
+            top: -8px;
+          "></div>
+          <div style="
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #0891b2, #0e7490);
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          "></div>
+        </div>
+      `;
 
-    const selectionMarker = new maplibregl.Marker(el)
-      .setLngLat([selectedArea.lng, selectedArea.lat])
-      .addTo(map);
+      const selectionMarker = new maplibregl.Marker(el)
+        .setLngLat([selectedArea.lng, selectedArea.lat])
+        .addTo(map);
 
-    markersRef.current.push(selectionMarker);
+      markersRef.current.push(selectionMarker);
+    } catch (error) {
+      console.warn("Error updating selected area:", error);
+    }
   }, [selectedArea, mapLoaded]);
 
   // Update polygons
