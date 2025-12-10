@@ -4,6 +4,7 @@ import { ArrowRight, Satellite, Search, Globe2, TrendingUp, Shield } from "lucid
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
+import Footer from "@/components/Footer";
 
 const Home = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -21,8 +22,8 @@ const Home = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="relative overflow-hidden">
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="relative overflow-hidden flex-1">
         {/* Hero Section */}
         <div className="relative z-10 container mx-auto px-4 md:px-6 pt-20 md:pt-32 pb-12 md:pb-20">
           <div className="max-w-4xl mx-auto text-center animate-fade-in">
@@ -133,6 +134,7 @@ const Home = () => {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 };

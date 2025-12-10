@@ -7,6 +7,7 @@ import FileUploadAnalysis from "@/components/FileUploadAnalysis";
 import SavedLocations from "@/components/SavedLocations";
 import ComparisonMode from "@/components/ComparisonMode";
 import TimeLapseAnimation from "@/components/TimeLapseAnimation";
+import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -483,6 +484,7 @@ const GeoWitness = () => {
           </TabsContent>
         </Tabs>
       </div>
+      <Footer />
     </div>
   );
 };
