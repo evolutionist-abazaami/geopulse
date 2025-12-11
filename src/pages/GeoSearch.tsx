@@ -146,9 +146,10 @@ const GeoSearch = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-73px)] flex flex-col lg:flex-row bg-background overflow-hidden">
-      {/* Map Container */}
-      <div className="flex-1 relative h-[40vh] lg:h-full order-2 lg:order-1">
+    <div className="h-[calc(100vh-73px)] flex flex-col bg-background">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* Map Container */}
+        <div className="flex-1 relative h-[40vh] lg:h-full order-2 lg:order-1">
         <MapLibreMap
           center={mapCenter} 
           zoom={mapZoom} 
@@ -369,6 +370,7 @@ const GeoSearch = () => {
             <FileUploadAnalysis />
           </TabsContent>
         </Tabs>
+        </div>
       </div>
       <Footer />
     </div>

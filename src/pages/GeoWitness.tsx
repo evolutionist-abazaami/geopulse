@@ -194,8 +194,9 @@ const GeoWitness = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-73px)] flex flex-col lg:flex-row bg-background overflow-hidden">
-      {/* Map Container - Larger on mobile for better interaction */}
+    <div className="h-[calc(100vh-73px)] flex flex-col bg-background">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* Map Container - Larger on mobile for better interaction */}
       <div className="flex-1 relative h-[50vh] sm:h-[55vh] lg:h-full order-2 lg:order-1 min-h-[300px]">
         <MapLibreMap 
           center={mapCenter} 
@@ -483,6 +484,7 @@ const GeoWitness = () => {
             <FileUploadAnalysis />
           </TabsContent>
         </Tabs>
+        </div>
       </div>
       <Footer />
     </div>
