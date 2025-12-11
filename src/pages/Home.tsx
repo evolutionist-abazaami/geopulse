@@ -4,7 +4,7 @@ import { ArrowRight, Satellite, Search, Globe2, TrendingUp, Shield } from "lucid
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
-import Footer from "@/components/Footer";
+
 
 const Home = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -134,7 +134,6 @@ const Home = () => {
           </div>
         </div>
       </div>
-      <Footer />
     </div>
   );
 };

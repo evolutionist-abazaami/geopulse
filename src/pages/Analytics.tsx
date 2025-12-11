@@ -8,7 +8,7 @@ import { DistributionChart } from "@/components/charts/DistributionChart";
 import { ComparisonChart } from "@/components/charts/ComparisonChart";
 import { Loader2, TrendingUp, BarChart3, PieChart } from "lucide-react";
 import { format } from "date-fns";
-import Footer from "@/components/Footer";
+
 
 const Analytics = () => {
   const navigate = useNavigate();
@@ -229,7 +229,6 @@ const Analytics = () => {
           </TabsContent>
         </Tabs>
       </div>
-      <Footer />
     </div>
   );
 };
