@@ -4,7 +4,7 @@ import MapLayerControls from "@/components/MapLayerControls";
 import LocationSearch from "@/components/LocationSearch";
 import ReportGenerator from "@/components/ReportGenerator";
 import FileUploadAnalysis from "@/components/FileUploadAnalysis";
-import Footer from "@/components/Footer";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -372,7 +372,6 @@ const GeoSearch = () => {
         </Tabs>
         </div>
       </div>
-      <Footer />
     </div>
   );
 };
