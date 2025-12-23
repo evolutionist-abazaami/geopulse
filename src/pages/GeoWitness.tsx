@@ -158,27 +158,36 @@ const GeoWitness = () => {
       }
 
       const data = await response.json();
+      console.log("Analysis result:", data);
       setResults(data);
       
+      // Set marker at the analyzed location
       setMapMarkers([{
         lat: coordinates.lat,
         lng: coordinates.lng,
         label: `${region || selectedLocation?.name} - ${eventType}`,
-        color: "#ef4444"
+        color: data.changePercent > 50 ? "#ef4444" : "#f97316"
       }]);
       
+      // Create analysis boundary polygon - coordinates in [lat, lng] format for MapLibre
       const boundarySize = 0.15;
+      const changePercent = data.changePercent || 0;
       setMapPolygons([{
         coordinates: [
-          [coordinates.lat + boundarySize, coordinates.lng - boundarySize],
-          [coordinates.lat + boundarySize, coordinates.lng + boundarySize],
-          [coordinates.lat - boundarySize, coordinates.lng + boundarySize],
-          [coordinates.lat - boundarySize, coordinates.lng - boundarySize],
+          [coordinates.lng - boundarySize, coordinates.lat + boundarySize],
+          [coordinates.lng + boundarySize, coordinates.lat + boundarySize],
+          [coordinates.lng + boundarySize, coordinates.lat - boundarySize],
+          [coordinates.lng - boundarySize, coordinates.lat - boundarySize],
+          [coordinates.lng - boundarySize, coordinates.lat + boundarySize], // Close the polygon
         ] as [number, number][],
-        label: `${data.changePercent}% ${eventType} detected`,
-        color: data.changePercent > 50 ? "#ef4444" : "#f97316",
-        fillOpacity: 0.2
+        label: `${changePercent}% ${eventType} detected`,
+        color: changePercent > 50 ? "#ef4444" : changePercent > 25 ? "#f97316" : "#22c55e",
+        fillOpacity: 0.3
       }]);
+      
+      // Zoom to the analyzed area
+      setMapCenter([coordinates.lat, coordinates.lng]);
+      setMapZoom(10);
       
       if (session) {
         toast.success("Analysis complete and saved!");

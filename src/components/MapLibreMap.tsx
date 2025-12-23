@@ -562,55 +562,88 @@ const MapLibreMap = ({
     const map = mapInstanceRef.current;
     if (!map || !mapLoaded) return;
 
-    // Remove existing polygon layers
-    for (let i = 0; i < 20; i++) {
-      if (map.getLayer(`polygon-${i}`)) {
-        map.removeLayer(`polygon-${i}`);
+    try {
+      // Remove existing polygon layers
+      for (let i = 0; i < 20; i++) {
+        if (map.getLayer(`polygon-${i}`)) {
+          map.removeLayer(`polygon-${i}`);
+        }
+        if (map.getLayer(`polygon-outline-${i}`)) {
+          map.removeLayer(`polygon-outline-${i}`);
+        }
+        if (map.getSource(`polygon-source-${i}`)) {
+          map.removeSource(`polygon-source-${i}`);
+        }
       }
-      if (map.getLayer(`polygon-outline-${i}`)) {
-        map.removeLayer(`polygon-outline-${i}`);
-      }
-      if (map.getSource(`polygon-source-${i}`)) {
-        map.removeSource(`polygon-source-${i}`);
-      }
-    }
 
-    // Add new polygons
-    polygons.forEach((polygon, index) => {
-      const coordinates = polygon.coordinates.map(coord => [coord[1], coord[0]] as [number, number]);
-      
-      map.addSource(`polygon-source-${index}`, {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          properties: { label: polygon.label },
-          geometry: {
-            type: "Polygon",
-            coordinates: [coordinates],
+      if (polygons.length === 0) return;
+
+      console.log("Adding polygons:", polygons);
+
+      // Add new polygons
+      polygons.forEach((polygon, index) => {
+        if (!polygon.coordinates || polygon.coordinates.length < 3) {
+          console.warn(`Polygon ${index} has insufficient coordinates`);
+          return;
+        }
+
+        // Coordinates should already be in [lng, lat] format for MapLibre GeoJSON
+        const coordinates = polygon.coordinates.map(coord => {
+          // coord is [lng, lat] - use as is
+          return [coord[0], coord[1]] as [number, number];
+        });
+
+        console.log(`Polygon ${index} coordinates:`, coordinates);
+        
+        map.addSource(`polygon-source-${index}`, {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: { label: polygon.label },
+            geometry: {
+              type: "Polygon",
+              coordinates: [coordinates],
+            },
           },
-        },
-      });
+        });
 
-      map.addLayer({
-        id: `polygon-${index}`,
-        type: "fill",
-        source: `polygon-source-${index}`,
-        paint: {
-          "fill-color": polygon.color || "#0891b2",
-          "fill-opacity": polygon.fillOpacity || 0.2,
-        },
-      });
+        map.addLayer({
+          id: `polygon-${index}`,
+          type: "fill",
+          source: `polygon-source-${index}`,
+          paint: {
+            "fill-color": polygon.color || "#0891b2",
+            "fill-opacity": polygon.fillOpacity || 0.3,
+          },
+        });
 
-      map.addLayer({
-        id: `polygon-outline-${index}`,
-        type: "line",
-        source: `polygon-source-${index}`,
-        paint: {
-          "line-color": polygon.color || "#0891b2",
-          "line-width": 3,
-        },
+        map.addLayer({
+          id: `polygon-outline-${index}`,
+          type: "line",
+          source: `polygon-source-${index}`,
+          paint: {
+            "line-color": polygon.color || "#0891b2",
+            "line-width": 3,
+            "line-dasharray": [2, 1],
+          },
+        });
+
+        // Add label popup at center
+        const centerLng = coordinates.reduce((sum, c) => sum + c[0], 0) / coordinates.length;
+        const centerLat = coordinates.reduce((sum, c) => sum + c[1], 0) / coordinates.length;
+        
+        const popup = new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          className: "polygon-label-popup",
+        })
+          .setLngLat([centerLng, centerLat])
+          .setHTML(`<div style="padding: 4px 8px; font-weight: bold; font-size: 12px;">${polygon.label}</div>`)
+          .addTo(map);
       });
-    });
+    } catch (error) {
+      console.error("Error updating polygons:", error);
+    }
   }, [polygons, mapLoaded]);
 
   return (
@@ -639,6 +672,23 @@ const MapLibreMap = ({
         }
         .maplibregl-ctrl-group button span {
           filter: invert(0.5);
+        }
+        .polygon-label-popup .maplibregl-popup-content {
+          background: hsl(var(--card));
+          color: hsl(var(--card-foreground));
+          border: 1px solid hsl(var(--border));
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          padding: 0;
+        }
+        .polygon-label-popup .maplibregl-popup-tip {
+          border-top-color: hsl(var(--card));
+        }
+        .maplibregl-popup-content {
+          background: hsl(var(--card));
+          color: hsl(var(--card-foreground));
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
       `}</style>
     </div>
