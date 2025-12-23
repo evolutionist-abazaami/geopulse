@@ -97,6 +97,7 @@ const GeoSearch = () => {
       }
 
       const data = await response.json();
+      console.log("Search results:", data);
       setResults(data);
       
       if (data.locations && data.locations.length > 0) {
@@ -115,21 +116,48 @@ const GeoSearch = () => {
           setMapZoom(8);
         }
         
-        if (firstLocation.boundary) {
+        // Create boundary polygon if location coordinates exist
+        if (firstLocation.lat && firstLocation.lng) {
+          const boundarySize = 0.2;
           setMapPolygons([{
-            coordinates: firstLocation.boundary,
+            coordinates: [
+              [firstLocation.lng - boundarySize, firstLocation.lat + boundarySize],
+              [firstLocation.lng + boundarySize, firstLocation.lat + boundarySize],
+              [firstLocation.lng + boundarySize, firstLocation.lat - boundarySize],
+              [firstLocation.lng - boundarySize, firstLocation.lat - boundarySize],
+              [firstLocation.lng - boundarySize, firstLocation.lat + boundarySize],
+            ] as [number, number][],
             label: firstLocation.name || "Area of Interest",
             color: "#0891b2",
-            fillOpacity: 0.2
+            fillOpacity: 0.25
           }]);
         }
       } else if (selectedLocation) {
+        // Create visualization for selected location
         setMapMarkers([{
           lat: selectedLocation.lat,
           lng: selectedLocation.lng,
           label: selectedLocation.name,
           color: "#0891b2"
         }]);
+        
+        // Create boundary around selected location
+        const boundarySize = 0.15;
+        setMapPolygons([{
+          coordinates: [
+            [selectedLocation.lng - boundarySize, selectedLocation.lat + boundarySize],
+            [selectedLocation.lng + boundarySize, selectedLocation.lat + boundarySize],
+            [selectedLocation.lng + boundarySize, selectedLocation.lat - boundarySize],
+            [selectedLocation.lng - boundarySize, selectedLocation.lat - boundarySize],
+            [selectedLocation.lng - boundarySize, selectedLocation.lat + boundarySize],
+          ] as [number, number][],
+          label: data.interpretation || selectedLocation.name,
+          color: "#0891b2",
+          fillOpacity: 0.25
+        }]);
+        
+        setMapCenter([selectedLocation.lat, selectedLocation.lng]);
+        setMapZoom(10);
       }
       
       if (session) {
