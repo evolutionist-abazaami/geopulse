@@ -217,8 +217,8 @@ const MapLibreMap = ({
     const map = mapInstanceRef.current;
     if (!map || !mapLoaded) return;
 
-    try {
-      if (is3DEnabled) {
+    const enable3D = async () => {
+      try {
         // Add terrain sources if not present
         if (!map.getSource("terrainSource")) {
           map.addSource("terrainSource", {
@@ -226,6 +226,7 @@ const MapLibreMap = ({
             tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
             encoding: "terrarium",
             tileSize: 256,
+            maxzoom: 14, // Limit max zoom to avoid DEM range errors
           });
         }
         if (!map.getSource("hillshadeSource")) {
@@ -234,6 +235,7 @@ const MapLibreMap = ({
             tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
             encoding: "terrarium",
             tileSize: 256,
+            maxzoom: 14,
           });
         }
         
@@ -251,16 +253,30 @@ const MapLibreMap = ({
           });
         }
         
-        // Enable terrain
-        map.setTerrain({ source: "terrainSource", exaggeration: 1.5 });
+        // Wait for terrain tiles to load before enabling
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Enable terrain with error handling
+        try {
+          map.setTerrain({ source: "terrainSource", exaggeration: 1.5 });
+        } catch (terrainError) {
+          console.warn("Terrain setup failed, continuing without 3D:", terrainError);
+          return;
+        }
         
         map.easeTo({
           pitch: 60,
           bearing: -17,
           duration: 1000,
         });
-      } else {
-        // Disable terrain
+      } catch (error) {
+        console.error("Error enabling 3D terrain:", error);
+      }
+    };
+
+    const disable3D = () => {
+      try {
+        // Disable terrain first
         map.setTerrain(null);
         
         // Remove hillshade layer
@@ -273,23 +289,52 @@ const MapLibreMap = ({
           bearing: 0,
           duration: 1000,
         });
+      } catch (error) {
+        console.error("Error disabling 3D terrain:", error);
       }
-    } catch (error) {
-      console.error("Error toggling 3D terrain:", error);
+    };
+
+    if (is3DEnabled) {
+      enable3D();
+    } else {
+      disable3D();
     }
   }, [is3DEnabled, mapLoaded]);
 
-  // Update center and zoom
+  // Update center and zoom with DEM-safe handling
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
     
-    map.easeTo({
-      center: [center[1], center[0]],
-      zoom: zoom,
-      duration: 500,
-    });
-  }, [center, zoom]);
+    try {
+      // Temporarily disable terrain during navigation to avoid DEM range errors
+      const hadTerrain = !!map.getTerrain();
+      if (hadTerrain) {
+        map.setTerrain(null);
+      }
+      
+      map.easeTo({
+        center: [center[1], center[0]],
+        zoom: zoom,
+        duration: 500,
+      });
+      
+      // Re-enable terrain after navigation completes
+      if (hadTerrain && is3DEnabled) {
+        setTimeout(() => {
+          try {
+            if (map.getSource("terrainSource")) {
+              map.setTerrain({ source: "terrainSource", exaggeration: 1.5 });
+            }
+          } catch (e) {
+            console.warn("Could not re-enable terrain:", e);
+          }
+        }, 600);
+      }
+    } catch (error) {
+      console.warn("Error updating map center:", error);
+    }
+  }, [center, zoom, is3DEnabled]);
 
   // Handle selection mode clicks
   useEffect(() => {
@@ -446,12 +491,31 @@ const MapLibreMap = ({
       }
     });
 
-    // Fit bounds if markers exist
+    // Fit bounds if markers exist - with DEM-safe handling
     if (markers.length > 0 && markers.length < 10) {
       try {
+        // Temporarily disable terrain during fitBounds to avoid DEM range errors
+        const hadTerrain = !!map.getTerrain();
+        if (hadTerrain) {
+          map.setTerrain(null);
+        }
+        
         const bounds = new maplibregl.LngLatBounds();
         markers.forEach(m => bounds.extend([m.lng, m.lat]));
         map.fitBounds(bounds, { padding: 50, maxZoom: 12 });
+        
+        // Re-enable terrain after fitBounds completes
+        if (hadTerrain) {
+          setTimeout(() => {
+            try {
+              if (map.getSource("terrainSource")) {
+                map.setTerrain({ source: "terrainSource", exaggeration: 1.5 });
+              }
+            } catch (e) {
+              console.warn("Could not re-enable terrain after fitBounds:", e);
+            }
+          }, 500);
+        }
       } catch (error) {
         console.warn("Error fitting bounds:", error);
       }
