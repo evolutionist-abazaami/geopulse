@@ -10,6 +10,7 @@ import LocationSearch from "./LocationSearch";
 import { ComparisonChart } from "./charts/ComparisonChart";
 import SplitMapComparison from "./SplitMapComparison";
 import AnimatedMapTransition from "./AnimatedMapTransition";
+import ComparisonReportGenerator from "./ComparisonReportGenerator";
 
 interface ComparisonModeProps {
   onComparisonComplete?: (result: any) => void;
@@ -344,6 +345,8 @@ const ComparisonMode = ({ onComparisonComplete }: ComparisonModeProps) => {
             data={comparisonResult.chartData}
             title="Period Comparison"
           />
+
+          <ComparisonReportGenerator comparisonResult={comparisonResult} />
         </div>
       )}
     </div>
