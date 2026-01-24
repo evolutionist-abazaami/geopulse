@@ -11,6 +11,7 @@ import GeoSearch from "./pages/GeoSearch";
 import Dashboard from "./pages/Dashboard";
 import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
+import SharedReport from "./pages/SharedReport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,21 +22,32 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <div className="min-h-screen bg-background">
-          <Navigation />
-          <div className="pt-[73px]">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/geowitness" element={<GeoWitness />} />
-              <Route path="/geosearch" element={<GeoSearch />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </div>
-          <AIAssistant />
-        </div>
+        <Routes>
+          {/* Public shared report route - no navigation */}
+          <Route path="/shared/:shareId" element={<SharedReport />} />
+          
+          {/* Main app routes with navigation */}
+          <Route
+            path="*"
+            element={
+              <div className="min-h-screen bg-background">
+                <Navigation />
+                <div className="pt-[73px]">
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/geowitness" element={<GeoWitness />} />
+                    <Route path="/geosearch" element={<GeoSearch />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/analytics" element={<Analytics />} />
+                    <Route path="/auth" element={<Auth />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </div>
+                <AIAssistant />
+              </div>
+            }
+          />
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

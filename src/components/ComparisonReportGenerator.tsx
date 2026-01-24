@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, FileText, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Download, FileText, Loader2, Share2, Copy, Check, Link2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
 
 interface ComparisonReportGeneratorProps {
@@ -25,11 +28,16 @@ interface ComparisonReportGeneratorProps {
       difference: string;
       insight: string;
     };
+    chartData?: any[];
   };
 }
 
 const ComparisonReportGenerator = ({ comparisonResult }: ComparisonReportGeneratorProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
   const getEventTypeInfo = (type: string) => {
     const types: Record<string, { label: string; icon: string; category: string }> = {
@@ -525,25 +533,173 @@ const ComparisonReportGenerator = ({ comparisonResult }: ComparisonReportGenerat
     }
   };
 
+  const generateShareLink = async () => {
+    setIsSharing(true);
+    setShareUrl(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        toast.error("Please sign in to share reports");
+        setIsSharing(false);
+        return;
+      }
+
+      const eventInfo = getEventTypeInfo(comparisonResult.eventType);
+      const title = `${eventInfo.label} - ${comparisonResult.location}`;
+
+      const { data, error } = await supabase
+        .from("shared_reports")
+        .insert({
+          report_type: "comparison",
+          title,
+          location_name: comparisonResult.location,
+          event_type: comparisonResult.eventType,
+          report_data: comparisonResult,
+          created_by: session.user.id,
+        })
+        .select("share_id")
+        .single();
+
+      if (error) {
+        console.error("Share error:", error);
+        toast.error("Failed to create share link");
+        return;
+      }
+
+      const baseUrl = window.location.origin;
+      const url = `${baseUrl}/shared/${data.share_id}`;
+      setShareUrl(url);
+      toast.success("Share link created!");
+    } catch (error) {
+      console.error("Share error:", error);
+      toast.error("Failed to create share link");
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const copyToClipboard = async () => {
+    if (!shareUrl) return;
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.success("Link copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      toast.error("Failed to copy link");
+    }
+  };
+
   return (
-    <Button
-      onClick={generateComparisonPDF}
-      disabled={isGenerating}
-      variant="outline"
-      className="w-full mt-4"
-    >
-      {isGenerating ? (
-        <>
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          Generating Report...
-        </>
-      ) : (
-        <>
-          <FileText className="h-4 w-4 mr-2" />
-          Download Comparison Report (PDF)
-        </>
-      )}
-    </Button>
+    <div className="space-y-3 mt-4">
+      <Button
+        onClick={generateComparisonPDF}
+        disabled={isGenerating}
+        variant="outline"
+        className="w-full"
+      >
+        {isGenerating ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Generating Report...
+          </>
+        ) : (
+          <>
+            <FileText className="h-4 w-4 mr-2" />
+            Download Comparison Report (PDF)
+          </>
+        )}
+      </Button>
+
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogTrigger asChild>
+          <Button variant="secondary" className="w-full">
+            <Share2 className="h-4 w-4 mr-2" />
+            Share Report
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5 text-primary" />
+              Share Comparison Report
+            </DialogTitle>
+            <DialogDescription>
+              Generate a public link to share this comparison analysis with stakeholders.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {!shareUrl ? (
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Create a shareable link for:
+                </p>
+                <div className="bg-muted rounded-lg p-4 mb-4">
+                  <p className="font-semibold">{comparisonResult.location}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {getEventTypeInfo(comparisonResult.eventType).label}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {comparisonResult.period1.range} vs {comparisonResult.period2.range}
+                  </p>
+                </div>
+                <Button onClick={generateShareLink} disabled={isSharing} className="w-full">
+                  {isSharing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating Link...
+                    </>
+                  ) : (
+                    <>
+                      <Link2 className="h-4 w-4 mr-2" />
+                      Generate Share Link
+                    </>
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={shareUrl}
+                    className="font-mono text-sm"
+                  />
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={copyToClipboard}
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Anyone with this link can view the report
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setShareUrl(null);
+                    setShareDialogOpen(false);
+                  }}
+                >
+                  Done
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 
