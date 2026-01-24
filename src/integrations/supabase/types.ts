@@ -209,6 +209,51 @@ export type Database = {
         }
         Relationships: []
       }
+      shared_reports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_type: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          location_name: string
+          report_data: Json
+          report_type: string
+          share_id: string
+          title: string
+          view_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_type: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          location_name: string
+          report_data: Json
+          report_type?: string
+          share_id?: string
+          title: string
+          view_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_type?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          location_name?: string
+          report_data?: Json
+          report_type?: string
+          share_id?: string
+          title?: string
+          view_count?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
