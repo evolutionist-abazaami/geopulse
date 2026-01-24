@@ -3,11 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, GitCompare, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Loader2, GitCompare, TrendingUp, TrendingDown, Minus, Map } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import LocationSearch from "./LocationSearch";
 import { ComparisonChart } from "./charts/ComparisonChart";
+import SplitMapComparison from "./SplitMapComparison";
 
 interface ComparisonModeProps {
   onComparisonComplete?: (result: any) => void;
@@ -36,6 +37,7 @@ const ComparisonMode = ({ onComparisonComplete }: ComparisonModeProps) => {
   
   const [isComparing, setIsComparing] = useState(false);
   const [comparisonResult, setComparisonResult] = useState<any>(null);
+  const [showSplitMap, setShowSplitMap] = useState(true);
 
   const handleLocationSelect = (location: { name: string; lat: number; lng: number }) => {
     setSelectedLocation(location);
@@ -240,6 +242,37 @@ const ComparisonMode = ({ onComparisonComplete }: ComparisonModeProps) => {
           )}
         </Button>
       </div>
+
+      {/* Split Map Comparison View */}
+      {selectedLocation && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Map className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Split Map View</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSplitMap(!showSplitMap)}
+            >
+              {showSplitMap ? "Hide" : "Show"}
+            </Button>
+          </div>
+          
+          {showSplitMap && (
+            <SplitMapComparison
+              center={[selectedLocation.lat, selectedLocation.lng]}
+              zoom={10}
+              period1Label={comparisonResult ? comparisonResult.period1.range : `${period1Start} - ${period1End}`}
+              period2Label={comparisonResult ? comparisonResult.period2.range : `${period2Start} - ${period2End}`}
+              period1Data={comparisonResult?.period1}
+              period2Data={comparisonResult?.period2}
+              selectedLocation={selectedLocation}
+            />
+          )}
+        </div>
+      )}
 
       {/* Comparison Results */}
       {comparisonResult && (
