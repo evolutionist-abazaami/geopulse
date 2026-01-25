@@ -36,11 +36,8 @@ const SharedReport = () => {
           return;
         }
 
-        // Increment view count
-        await supabase
-          .from("shared_reports")
-          .update({ view_count: (data.view_count || 0) + 1 })
-          .eq("share_id", shareId);
+        // Increment view count using secure RPC function
+        await supabase.rpc("increment_shared_report_view", { p_share_id: shareId });
 
         setReport(data);
       } catch (err) {
