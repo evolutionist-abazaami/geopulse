@@ -6,8 +6,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendChart } from "@/components/charts/TrendChart";
 import { DistributionChart } from "@/components/charts/DistributionChart";
 import { ComparisonChart } from "@/components/charts/ComparisonChart";
-import { Loader2, TrendingUp, BarChart3, PieChart } from "lucide-react";
+import GISExportButton from "@/components/GISExportButton";
+import { Loader2, TrendingUp, BarChart3, PieChart, Download } from "lucide-react";
 import { format } from "date-fns";
+import { AnalysisFeature, dbResultToFeature } from "@/lib/gis-export";
 
 
 const Analytics = () => {
@@ -96,13 +98,27 @@ const Analytics = () => {
     <div className="min-h-[calc(100vh-73px)] bg-background p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl md:text-4xl font-bold bg-gradient-ocean bg-clip-text text-transparent">
-            Analytics Dashboard
-          </h1>
-          <p className="text-muted-foreground mt-1 md:mt-2 text-sm md:text-base">
-            Comprehensive data visualization and insights
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-4xl font-bold bg-gradient-ocean bg-clip-text text-transparent">
+              Analytics Dashboard
+            </h1>
+            <p className="text-muted-foreground mt-1 md:mt-2 text-sm md:text-base">
+              Comprehensive data visualization and insights
+            </p>
+          </div>
+          
+          {/* GIS Export for all analysis results */}
+          {analysisResults.length > 0 && (
+            <GISExportButton
+              features={analysisResults
+                .map(dbResultToFeature)
+                .filter((f): f is AnalysisFeature => f !== null)}
+              filename="geopulse-all-analyses"
+              variant="outline"
+              size="default"
+            />
+          )}
         </div>
 
         {/* Stats Overview */}

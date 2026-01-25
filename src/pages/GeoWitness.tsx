@@ -7,6 +7,7 @@ import FileUploadAnalysis from "@/components/FileUploadAnalysis";
 import SavedLocations from "@/components/SavedLocations";
 import ComparisonMode from "@/components/ComparisonMode";
 import TimeLapseAnimation from "@/components/TimeLapseAnimation";
+import GISExportButton from "@/components/GISExportButton";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,6 +18,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Play, AlertTriangle, Loader2, MousePointer, Upload, ChevronDown, Star, GitCompare, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { AnalysisFeature } from "@/lib/gis-export";
 
 const eventTypes = [
   // Vegetation & Forest
@@ -461,11 +463,28 @@ const GeoWitness = () => {
                   </div>
                 )}
 
-                <ReportGenerator 
-                  analysisData={results} 
-                  eventType={eventType}
-                  region={region || selectedLocation?.name}
-                />
+                <div className="flex flex-wrap gap-2">
+                  <ReportGenerator 
+                    analysisData={results} 
+                    eventType={eventType}
+                    region={region || selectedLocation?.name}
+                  />
+                  <GISExportButton
+                    features={[{
+                      id: results.id || crypto.randomUUID(),
+                      name: region || selectedLocation?.name || "Unknown",
+                      coordinates: selectedLocation || { lat: mapCenter[0], lng: mapCenter[1] },
+                      eventType: results.eventType || eventType,
+                      changePercent: results.changePercent,
+                      startDate: startDate,
+                      endDate: endDate,
+                      summary: results.summary,
+                      areaAnalyzed: results.area,
+                      createdAt: new Date().toISOString(),
+                    } as AnalysisFeature]}
+                    filename={`geopulse-${eventType}-${region?.replace(/[^a-zA-Z0-9]/g, "_") || "analysis"}`}
+                  />
+                </div>
               </div>
             )}
           </TabsContent>
