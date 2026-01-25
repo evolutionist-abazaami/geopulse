@@ -142,29 +142,31 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
       const reportId = `GP-${reportDate.getFullYear()}${String(reportDate.getMonth() + 1).padStart(2, '0')}${String(reportDate.getDate()).padStart(2, '0')}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
       // Helper functions
-      const addWrappedText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number = 5): number => {
+      const addWrappedText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number = 4.5): number => {
         const lines = pdf.splitTextToSize(text, maxWidth);
-        pdf.text(lines, x, y);
-        return y + (lines.length * lineHeight);
+        const maxLines = Math.floor((pageHeight - y - 30) / lineHeight); // Limit lines to fit page
+        const displayLines = lines.slice(0, Math.min(lines.length, maxLines));
+        pdf.text(displayLines, x, y);
+        return y + (displayLines.length * lineHeight);
       };
 
       const addSectionTitle = (title: string, y: number): number => {
         pdf.setFillColor(8, 145, 178);
-        pdf.rect(margin, y, 3, 8, "F");
+        pdf.rect(margin, y, 3, 7, "F");
         pdf.setTextColor(17, 24, 39);
-        pdf.setFontSize(14);
+        pdf.setFontSize(12);
         pdf.setFont("helvetica", "bold");
-        pdf.text(title, margin + 6, y + 6);
-        return y + 14;
+        pdf.text(title, margin + 6, y + 5);
+        return y + 12;
       };
 
       const addTableRow = (cols: string[], y: number, isHeader: boolean = false, colWidths: number[]): number => {
-        const rowHeight = 8;
+        const rowHeight = 7;
         let x = margin;
         
         if (isHeader) {
           pdf.setFillColor(243, 244, 246);
-          pdf.rect(margin, y - 5, contentWidth, rowHeight, "F");
+          pdf.rect(margin, y - 4, contentWidth, rowHeight, "F");
           pdf.setFont("helvetica", "bold");
           pdf.setTextColor(55, 65, 81);
         } else {
@@ -172,9 +174,11 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
           pdf.setTextColor(75, 85, 99);
         }
         
-        pdf.setFontSize(9);
+        pdf.setFontSize(8);
         cols.forEach((col, i) => {
-          pdf.text(col, x + 2, y);
+          // Truncate text if too long for column
+          const truncatedText = pdf.splitTextToSize(col, colWidths[i] - 4)[0] || col;
+          pdf.text(truncatedText, x + 2, y);
           x += colWidths[i];
         });
         
@@ -205,140 +209,151 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
 
       // Logo and branding
       pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(32);
+      pdf.setFontSize(28);
       pdf.setFont("helvetica", "bold");
       pdf.text("GEOPULSE", margin, 35);
       
-      pdf.setFontSize(12);
+      pdf.setFontSize(10);
       pdf.setFont("helvetica", "normal");
-      pdf.text("Environmental Intelligence Platform", margin, 45);
+      pdf.text("Environmental Intelligence Platform", margin, 44);
       
       // Report type badge
       pdf.setFillColor(255, 255, 255);
-      pdf.roundedRect(margin, 55, 50, 8, 2, 2, "F");
+      pdf.roundedRect(margin, 52, 48, 7, 2, 2, "F");
       pdf.setTextColor(8, 145, 178);
-      pdf.setFontSize(8);
+      pdf.setFontSize(7);
       pdf.setFont("helvetica", "bold");
-      pdf.text(isSimple ? "SUMMARY REPORT" : "PROFESSIONAL ANALYSIS", margin + 3, 60);
+      pdf.text(isSimple ? "SUMMARY REPORT" : "PROFESSIONAL ANALYSIS", margin + 3, 57);
 
       // Report ID
       pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(9);
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "normal");
-      pdf.text(`Report ID: ${reportId}`, pageWidth - margin - 45, 75);
+      pdf.text(`Report ID: ${reportId}`, pageWidth - margin - 42, 75);
 
-      yPos = 105;
+      yPos = 100;
 
-      // Main Title
+      // Main Title - truncate if too long
       pdf.setTextColor(17, 24, 39);
-      pdf.setFontSize(24);
+      pdf.setFontSize(20);
       pdf.setFont("helvetica", "bold");
-      pdf.text(eventInfo.label, margin, yPos);
-      yPos += 10;
+      const titleLines = pdf.splitTextToSize(eventInfo.label, contentWidth);
+      pdf.text(titleLines[0], margin, yPos);
+      yPos += 8;
 
-      pdf.setFontSize(12);
+      pdf.setFontSize(10);
       pdf.setTextColor(107, 114, 128);
       pdf.setFont("helvetica", "normal");
       pdf.text(eventInfo.category, margin, yPos);
-      yPos += 20;
+      yPos += 15;
 
       // Location and Date Info Box
       pdf.setFillColor(249, 250, 251);
-      pdf.roundedRect(margin, yPos, contentWidth, 35, 3, 3, "F");
+      pdf.roundedRect(margin, yPos, contentWidth, 30, 3, 3, "F");
       
+      const infoBoxY = yPos;
+      const colWidth = contentWidth / 3;
+      
+      // Region column
       pdf.setTextColor(75, 85, 99);
-      pdf.setFontSize(9);
-      pdf.text("REGION", margin + 8, yPos + 10);
+      pdf.setFontSize(7);
+      pdf.text("REGION", margin + 5, infoBoxY + 8);
       pdf.setTextColor(17, 24, 39);
-      pdf.setFontSize(12);
+      pdf.setFontSize(10);
       pdf.setFont("helvetica", "bold");
-      pdf.text(region || analysisData?.region || "Ghana", margin + 8, yPos + 18);
+      const regionText = pdf.splitTextToSize(region || analysisData?.region || "Ghana", colWidth - 10)[0];
+      pdf.text(regionText, margin + 5, infoBoxY + 16);
 
+      // Analysis period column
       pdf.setTextColor(75, 85, 99);
-      pdf.setFontSize(9);
+      pdf.setFontSize(7);
       pdf.setFont("helvetica", "normal");
-      pdf.text("ANALYSIS PERIOD", margin + 70, yPos + 10);
+      pdf.text("ANALYSIS PERIOD", margin + colWidth + 5, infoBoxY + 8);
       pdf.setTextColor(17, 24, 39);
-      pdf.setFontSize(11);
+      pdf.setFontSize(9);
       pdf.setFont("helvetica", "bold");
       const startDate = analysisData?.startDate || analysisData?.start_date || "2024-01-01";
       const endDate = analysisData?.endDate || analysisData?.end_date || new Date().toISOString().split('T')[0];
-      pdf.text(`${startDate} to ${endDate}`, margin + 70, yPos + 18);
+      pdf.text(`${startDate} to ${endDate}`, margin + colWidth + 5, infoBoxY + 16);
 
+      // Report date column
       pdf.setTextColor(75, 85, 99);
-      pdf.setFontSize(9);
+      pdf.setFontSize(7);
       pdf.setFont("helvetica", "normal");
-      pdf.text("REPORT DATE", pageWidth - margin - 50, yPos + 10);
+      pdf.text("REPORT DATE", margin + colWidth * 2 + 5, infoBoxY + 8);
       pdf.setTextColor(17, 24, 39);
-      pdf.setFontSize(11);
+      pdf.setFontSize(9);
       pdf.setFont("helvetica", "bold");
-      pdf.text(reportDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), pageWidth - margin - 50, yPos + 18);
+      pdf.text(reportDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), margin + colWidth * 2 + 5, infoBoxY + 16);
 
-      yPos += 50;
+      yPos += 38;
 
       // Risk Assessment Banner
       pdf.setFillColor(risk.color[0], risk.color[1], risk.color[2]);
-      pdf.roundedRect(margin, yPos, contentWidth, 25, 3, 3, "F");
+      pdf.roundedRect(margin, yPos, contentWidth, 20, 3, 3, "F");
       
       pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(10);
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "bold");
-      pdf.text("RISK ASSESSMENT", margin + 8, yPos + 9);
+      pdf.text("RISK ASSESSMENT", margin + 6, yPos + 7);
       
-      pdf.setFontSize(16);
-      pdf.text(risk.level, margin + 8, yPos + 19);
+      pdf.setFontSize(14);
+      pdf.text(risk.level, margin + 6, yPos + 16);
       
-      pdf.setFontSize(10);
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "normal");
-      pdf.text(risk.description, margin + 60, yPos + 15);
+      const riskDescLines = pdf.splitTextToSize(risk.description, contentWidth - 70);
+      pdf.text(riskDescLines[0], margin + 50, yPos + 12);
 
-      yPos += 35;
+      yPos += 28;
 
       // Key Metrics Grid
-      const metricsBoxWidth = (contentWidth - 10) / 3;
+      const metricsBoxWidth = (contentWidth - 8) / 3;
+      const metricsBoxHeight = 35;
       
       // Metric 1: Change Detected
       pdf.setFillColor(254, 242, 242);
-      pdf.roundedRect(margin, yPos, metricsBoxWidth, 40, 3, 3, "F");
+      pdf.roundedRect(margin, yPos, metricsBoxWidth, metricsBoxHeight, 3, 3, "F");
       pdf.setTextColor(153, 27, 27);
-      pdf.setFontSize(9);
+      pdf.setFontSize(7);
       pdf.setFont("helvetica", "bold");
-      pdf.text("CHANGE DETECTED", margin + 5, yPos + 10);
-      pdf.setFontSize(24);
-      pdf.text(`${changePercent.toFixed(1)}%`, margin + 5, yPos + 28);
-      pdf.setFontSize(8);
+      pdf.text("CHANGE DETECTED", margin + 4, yPos + 8);
+      pdf.setFontSize(20);
+      pdf.text(`${changePercent.toFixed(1)}%`, margin + 4, yPos + 23);
+      pdf.setFontSize(7);
       pdf.setFont("helvetica", "normal");
-      pdf.text(changePercent > 0 ? "Increase" : changePercent < 0 ? "Decrease" : "No change", margin + 5, yPos + 35);
+      pdf.text(changePercent > 0 ? "Increase" : changePercent < 0 ? "Decrease" : "No change", margin + 4, yPos + 30);
 
       // Metric 2: Area Analyzed
       pdf.setFillColor(239, 246, 255);
-      pdf.roundedRect(margin + metricsBoxWidth + 5, yPos, metricsBoxWidth, 40, 3, 3, "F");
+      pdf.roundedRect(margin + metricsBoxWidth + 4, yPos, metricsBoxWidth, metricsBoxHeight, 3, 3, "F");
       pdf.setTextColor(30, 64, 175);
-      pdf.setFontSize(9);
+      pdf.setFontSize(7);
       pdf.setFont("helvetica", "bold");
-      pdf.text("AREA ANALYZED", margin + metricsBoxWidth + 10, yPos + 10);
-      pdf.setFontSize(18);
+      pdf.text("AREA ANALYZED", margin + metricsBoxWidth + 8, yPos + 8);
+      pdf.setFontSize(14);
       const area = analysisData?.area || analysisData?.area_analyzed || "2,450 km²";
-      pdf.text(area, margin + metricsBoxWidth + 10, yPos + 28);
-      pdf.setFontSize(8);
+      const areaText = pdf.splitTextToSize(area, metricsBoxWidth - 8)[0];
+      pdf.text(areaText, margin + metricsBoxWidth + 8, yPos + 23);
+      pdf.setFontSize(7);
       pdf.setFont("helvetica", "normal");
-      pdf.text("Total coverage", margin + metricsBoxWidth + 10, yPos + 35);
+      pdf.text("Total coverage", margin + metricsBoxWidth + 8, yPos + 30);
 
       // Metric 3: Confidence
       pdf.setFillColor(236, 253, 245);
-      pdf.roundedRect(margin + (metricsBoxWidth + 5) * 2, yPos, metricsBoxWidth, 40, 3, 3, "F");
+      pdf.roundedRect(margin + (metricsBoxWidth + 4) * 2, yPos, metricsBoxWidth, metricsBoxHeight, 3, 3, "F");
       pdf.setTextColor(21, 128, 61);
-      pdf.setFontSize(9);
+      pdf.setFontSize(7);
       pdf.setFont("helvetica", "bold");
-      pdf.text("CONFIDENCE LEVEL", margin + (metricsBoxWidth + 5) * 2 + 5, yPos + 10);
-      pdf.setFontSize(24);
+      pdf.text("CONFIDENCE", margin + (metricsBoxWidth + 4) * 2 + 4, yPos + 8);
+      pdf.setFontSize(20);
       const confidence = analysisData?.confidenceLevel || analysisData?.confidence || 87;
-      pdf.text(`${confidence}%`, margin + (metricsBoxWidth + 5) * 2 + 5, yPos + 28);
-      pdf.setFontSize(8);
+      pdf.text(`${confidence}%`, margin + (metricsBoxWidth + 4) * 2 + 4, yPos + 23);
+      pdf.setFontSize(7);
       pdf.setFont("helvetica", "normal");
-      pdf.text("AI accuracy rating", margin + (metricsBoxWidth + 5) * 2 + 5, yPos + 35);
+      pdf.text("AI accuracy", margin + (metricsBoxWidth + 4) * 2 + 4, yPos + 30);
 
-      yPos += 55;
+      yPos += metricsBoxHeight + 10;
 
       // ============= NEW PAGE - EXECUTIVE SUMMARY =============
       pdf.addPage();
@@ -354,17 +369,17 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
       yPos = addSectionTitle("EXECUTIVE SUMMARY", yPos);
 
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
+      pdf.setFontSize(9);
       pdf.setTextColor(55, 65, 81);
       
       const executiveSummary = analysisData?.summary || 
-        `This comprehensive environmental analysis examines ${eventInfo.label.toLowerCase()} patterns within the ${region || 'specified'} region over the designated study period. ` +
-        `Our satellite-based remote sensing methodology detected a ${Math.abs(changePercent).toFixed(1)}% ${changePercent >= 0 ? 'increase' : 'decrease'} in the monitored environmental indicator. ` +
-        `The analysis utilized multi-spectral imagery analysis, advanced change detection algorithms, and AI-powered pattern recognition to deliver high-confidence results. ` +
-        `Based on our assessment, this situation is classified as ${risk.level} risk, ${risk.description.toLowerCase()}.`;
+        `This environmental analysis examines ${eventInfo.label.toLowerCase()} patterns within the ${region || 'specified'} region. ` +
+        `Satellite-based remote sensing detected a ${Math.abs(changePercent).toFixed(1)}% ${changePercent >= 0 ? 'increase' : 'decrease'} in the monitored indicator. ` +
+        `Analysis utilized multi-spectral imagery and AI-powered pattern recognition. ` +
+        `This situation is classified as ${risk.level} risk.`;
       
-      yPos = addWrappedText(executiveSummary, margin, yPos, contentWidth, 5);
-      yPos += 15;
+      yPos = addWrappedText(executiveSummary, margin, yPos, contentWidth, 4.5);
+      yPos += 12;
 
       // Map Visualization
       if (mapImage) {
@@ -404,34 +419,34 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
         { type: "action", detail: "Continued monitoring and targeted intervention strategies recommended" }
       ];
 
-      findings.slice(0, 6).forEach((finding: any, index: number) => {
-        checkPageBreak(20);
+      findings.slice(0, 4).forEach((finding: any, index: number) => {
+        checkPageBreak(18);
         
         const text = typeof finding === "string" ? finding : finding.detail || finding.description || JSON.stringify(finding);
         const findingType = finding.type || (index === 0 ? "Primary" : index === 1 ? "Secondary" : "Additional");
         
         pdf.setFillColor(249, 250, 251);
-        pdf.roundedRect(margin, yPos - 4, contentWidth, 18, 2, 2, "F");
+        pdf.roundedRect(margin, yPos - 3, contentWidth, 16, 2, 2, "F");
         
         pdf.setFillColor(8, 145, 178);
-        pdf.circle(margin + 6, yPos + 3, 3, "F");
+        pdf.circle(margin + 5, yPos + 3, 2.5, "F");
         pdf.setTextColor(255, 255, 255);
-        pdf.setFontSize(8);
+        pdf.setFontSize(7);
         pdf.setFont("helvetica", "bold");
-        pdf.text(String(index + 1), margin + 4.5, yPos + 5);
+        pdf.text(String(index + 1), margin + 3.8, yPos + 4.5);
         
         pdf.setTextColor(17, 24, 39);
-        pdf.setFontSize(10);
+        pdf.setFontSize(8);
         pdf.setFont("helvetica", "bold");
-        pdf.text(findingType.toUpperCase(), margin + 14, yPos + 3);
+        pdf.text(findingType.toUpperCase().substring(0, 12), margin + 12, yPos + 2);
         
         pdf.setFont("helvetica", "normal");
         pdf.setTextColor(55, 65, 81);
-        pdf.setFontSize(9);
-        const wrappedFinding = pdf.splitTextToSize(text, contentWidth - 20);
-        pdf.text(wrappedFinding.slice(0, 2).join(' '), margin + 14, yPos + 10);
+        pdf.setFontSize(8);
+        const wrappedFinding = pdf.splitTextToSize(text, contentWidth - 16);
+        pdf.text(wrappedFinding[0] || '', margin + 12, yPos + 9);
         
-        yPos += 22;
+        yPos += 18;
       });
 
       // ============= TREND CHART =============

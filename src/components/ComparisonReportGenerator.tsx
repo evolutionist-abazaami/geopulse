@@ -117,31 +117,33 @@ const ComparisonReportGenerator = ({ comparisonResult }: ComparisonReportGenerat
       );
 
       // Helper functions
-      const addWrappedText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number = 5): number => {
+      const addWrappedText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number = 4.5): number => {
         const lines = pdf.splitTextToSize(text, maxWidth);
-        pdf.text(lines, x, y);
-        return y + (lines.length * lineHeight);
+        const maxLines = Math.floor((pageHeight - y - 30) / lineHeight);
+        const displayLines = lines.slice(0, Math.min(lines.length, maxLines));
+        pdf.text(displayLines, x, y);
+        return y + (displayLines.length * lineHeight);
       };
 
       const addSectionTitle = (title: string, y: number): number => {
         pdf.setFillColor(8, 145, 178);
-        pdf.rect(margin, y, 3, 8, "F");
+        pdf.rect(margin, y, 3, 7, "F");
         pdf.setTextColor(17, 24, 39);
-        pdf.setFontSize(14);
+        pdf.setFontSize(12);
         pdf.setFont("helvetica", "bold");
-        pdf.text(title, margin + 6, y + 6);
-        return y + 14;
+        pdf.text(title, margin + 6, y + 5);
+        return y + 12;
       };
 
       const checkPageBreak = (requiredSpace: number): void => {
         if (yPos > pageHeight - requiredSpace) {
           pdf.addPage();
           yPos = margin;
-          pdf.setFontSize(8);
+          pdf.setFontSize(7);
           pdf.setTextColor(156, 163, 175);
-          pdf.text(`GeoPulse Comparison Report ${reportId}`, margin, 12);
-          pdf.text(`Page ${pdf.getNumberOfPages()}`, pageWidth - margin - 15, 12);
-          yPos = 25;
+          pdf.text(`GeoPulse Comparison Report ${reportId}`, margin, 10);
+          pdf.text(`Page ${pdf.getNumberOfPages()}`, pageWidth - margin - 12, 10);
+          yPos = 18;
         }
       };
 
@@ -156,295 +158,298 @@ const ComparisonReportGenerator = ({ comparisonResult }: ComparisonReportGenerat
 
       // Branding
       pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(32);
+      pdf.setFontSize(26);
       pdf.setFont("helvetica", "bold");
-      pdf.text("GEOPULSE", margin, 35);
+      pdf.text("GEOPULSE", margin, 32);
       
-      pdf.setFontSize(12);
+      pdf.setFontSize(10);
       pdf.setFont("helvetica", "normal");
-      pdf.text("Environmental Intelligence Platform", margin, 45);
+      pdf.text("Environmental Intelligence Platform", margin, 42);
 
       // Report type badge
       pdf.setFillColor(255, 255, 255);
-      pdf.roundedRect(margin, 52, 55, 8, 2, 2, "F");
+      pdf.roundedRect(margin, 50, 50, 7, 2, 2, "F");
       pdf.setTextColor(8, 145, 178);
-      pdf.setFontSize(8);
+      pdf.setFontSize(7);
       pdf.setFont("helvetica", "bold");
-      pdf.text("COMPARATIVE ANALYSIS", margin + 3, 57);
+      pdf.text("COMPARATIVE ANALYSIS", margin + 3, 55);
 
       // Report ID
       pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(9);
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "normal");
-      pdf.text(`Report ID: ${reportId}`, pageWidth - margin - 50, 70);
+      pdf.text(`Report ID: ${reportId}`, pageWidth - margin - 45, 68);
 
-      yPos = 100;
+      yPos = 95;
 
       // Main Title
       pdf.setTextColor(17, 24, 39);
-      pdf.setFontSize(22);
+      pdf.setFontSize(18);
       pdf.setFont("helvetica", "bold");
       pdf.text("Before & After Environmental Analysis", margin, yPos);
-      yPos += 10;
+      yPos += 8;
 
-      pdf.setFontSize(14);
+      pdf.setFontSize(11);
       pdf.setTextColor(107, 114, 128);
       pdf.setFont("helvetica", "normal");
-      pdf.text(`${eventInfo.label} • ${eventInfo.category}`, margin, yPos);
-      yPos += 20;
+      const eventLabel = pdf.splitTextToSize(`${eventInfo.label} • ${eventInfo.category}`, contentWidth)[0];
+      pdf.text(eventLabel, margin, yPos);
+      yPos += 15;
 
       // Location & Date Box
       pdf.setFillColor(249, 250, 251);
-      pdf.roundedRect(margin, yPos, contentWidth, 25, 3, 3, "F");
+      pdf.roundedRect(margin, yPos, contentWidth, 22, 3, 3, "F");
       
       pdf.setTextColor(75, 85, 99);
-      pdf.setFontSize(9);
-      pdf.text("LOCATION", margin + 8, yPos + 10);
+      pdf.setFontSize(7);
+      pdf.text("LOCATION", margin + 6, yPos + 8);
       pdf.setTextColor(17, 24, 39);
-      pdf.setFontSize(12);
+      pdf.setFontSize(10);
       pdf.setFont("helvetica", "bold");
-      pdf.text(comparisonResult.location, margin + 8, yPos + 18);
+      const locationText = pdf.splitTextToSize(comparisonResult.location, contentWidth / 2 - 10)[0];
+      pdf.text(locationText, margin + 6, yPos + 16);
 
       pdf.setTextColor(75, 85, 99);
-      pdf.setFontSize(9);
+      pdf.setFontSize(7);
       pdf.setFont("helvetica", "normal");
-      pdf.text("REPORT DATE", pageWidth - margin - 50, yPos + 10);
+      pdf.text("REPORT DATE", pageWidth - margin - 45, yPos + 8);
       pdf.setTextColor(17, 24, 39);
-      pdf.setFontSize(11);
+      pdf.setFontSize(9);
       pdf.setFont("helvetica", "bold");
-      pdf.text(reportDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), pageWidth - margin - 50, yPos + 18);
+      pdf.text(reportDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), pageWidth - margin - 45, yPos + 16);
 
-      yPos += 35;
+      yPos += 28;
 
       // Trend Status Banner
       pdf.setFillColor(trendAnalysis.color[0], trendAnalysis.color[1], trendAnalysis.color[2]);
-      pdf.roundedRect(margin, yPos, contentWidth, 22, 3, 3, "F");
+      pdf.roundedRect(margin, yPos, contentWidth, 18, 3, 3, "F");
       
       pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(10);
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "bold");
-      pdf.text("TREND STATUS", margin + 8, yPos + 9);
+      pdf.text("TREND STATUS", margin + 6, yPos + 7);
       
-      pdf.setFontSize(14);
-      pdf.text(trendAnalysis.status, margin + 50, yPos + 9);
+      pdf.setFontSize(12);
+      pdf.text(trendAnalysis.status, margin + 45, yPos + 7);
       
-      pdf.setFontSize(9);
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "normal");
-      pdf.text(`${comparisonResult.comparison.difference}% change between periods`, margin + 8, yPos + 17);
+      pdf.text(`${comparisonResult.comparison.difference}% change between periods`, margin + 6, yPos + 14);
 
-      yPos += 32;
+      yPos += 25;
 
       // ============= PERIOD COMPARISON BOXES =============
-      const boxWidth = (contentWidth - 8) / 2;
+      const boxWidth = (contentWidth - 6) / 2;
+      const boxHeight = 48;
 
       // Period 1 Box (Before)
       pdf.setFillColor(period1Risk.bgColor[0], period1Risk.bgColor[1], period1Risk.bgColor[2]);
-      pdf.roundedRect(margin, yPos, boxWidth, 55, 3, 3, "F");
+      pdf.roundedRect(margin, yPos, boxWidth, boxHeight, 3, 3, "F");
       
       pdf.setFillColor(period1Risk.color[0], period1Risk.color[1], period1Risk.color[2]);
-      pdf.roundedRect(margin, yPos, boxWidth, 12, 3, 3, "F");
-      pdf.rect(margin, yPos + 6, boxWidth, 6, "F");
+      pdf.roundedRect(margin, yPos, boxWidth, 10, 3, 3, "F");
+      pdf.rect(margin, yPos + 5, boxWidth, 5, "F");
       
       pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(10);
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "bold");
-      pdf.text("PERIOD 1 • BEFORE", margin + 5, yPos + 8);
+      pdf.text("PERIOD 1 • BEFORE", margin + 4, yPos + 7);
 
       pdf.setTextColor(period1Risk.color[0], period1Risk.color[1], period1Risk.color[2]);
-      pdf.setFontSize(9);
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "normal");
-      pdf.text(comparisonResult.period1.range, margin + 5, yPos + 22);
+      const period1Range = pdf.splitTextToSize(comparisonResult.period1.range, boxWidth - 8)[0];
+      pdf.text(period1Range, margin + 4, yPos + 18);
 
-      pdf.setFontSize(28);
+      pdf.setFontSize(22);
       pdf.setFont("helvetica", "bold");
-      pdf.text(`${comparisonResult.period1.changePercent.toFixed(1)}%`, margin + 5, yPos + 40);
+      pdf.text(`${comparisonResult.period1.changePercent.toFixed(1)}%`, margin + 4, yPos + 34);
 
-      pdf.setFontSize(9);
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "normal");
-      pdf.text(`Risk: ${period1Risk.level}`, margin + 5, yPos + 50);
+      pdf.text(`Risk: ${period1Risk.level}`, margin + 4, yPos + 43);
 
       // Period 2 Box (After)
       pdf.setFillColor(period2Risk.bgColor[0], period2Risk.bgColor[1], period2Risk.bgColor[2]);
-      pdf.roundedRect(margin + boxWidth + 8, yPos, boxWidth, 55, 3, 3, "F");
+      pdf.roundedRect(margin + boxWidth + 6, yPos, boxWidth, boxHeight, 3, 3, "F");
       
       pdf.setFillColor(period2Risk.color[0], period2Risk.color[1], period2Risk.color[2]);
-      pdf.roundedRect(margin + boxWidth + 8, yPos, boxWidth, 12, 3, 3, "F");
-      pdf.rect(margin + boxWidth + 8, yPos + 6, boxWidth, 6, "F");
+      pdf.roundedRect(margin + boxWidth + 6, yPos, boxWidth, 10, 3, 3, "F");
+      pdf.rect(margin + boxWidth + 6, yPos + 5, boxWidth, 5, "F");
       
       pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(10);
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "bold");
-      pdf.text("PERIOD 2 • AFTER", margin + boxWidth + 13, yPos + 8);
+      pdf.text("PERIOD 2 • AFTER", margin + boxWidth + 10, yPos + 7);
 
       pdf.setTextColor(period2Risk.color[0], period2Risk.color[1], period2Risk.color[2]);
-      pdf.setFontSize(9);
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "normal");
-      pdf.text(comparisonResult.period2.range, margin + boxWidth + 13, yPos + 22);
+      const period2Range = pdf.splitTextToSize(comparisonResult.period2.range, boxWidth - 8)[0];
+      pdf.text(period2Range, margin + boxWidth + 10, yPos + 18);
 
-      pdf.setFontSize(28);
+      pdf.setFontSize(22);
       pdf.setFont("helvetica", "bold");
-      pdf.text(`${comparisonResult.period2.changePercent.toFixed(1)}%`, margin + boxWidth + 13, yPos + 40);
+      pdf.text(`${comparisonResult.period2.changePercent.toFixed(1)}%`, margin + boxWidth + 10, yPos + 34);
 
-      pdf.setFontSize(9);
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "normal");
-      pdf.text(`Risk: ${period2Risk.level}`, margin + boxWidth + 13, yPos + 50);
+      pdf.text(`Risk: ${period2Risk.level}`, margin + boxWidth + 10, yPos + 43);
 
-      yPos += 65;
+      yPos += boxHeight + 10;
 
       // ============= PAGE 2 - DETAILED ANALYSIS =============
       pdf.addPage();
       yPos = margin;
       
-      pdf.setFontSize(8);
+      pdf.setFontSize(7);
       pdf.setTextColor(156, 163, 175);
-      pdf.text(`GeoPulse Comparison Report ${reportId}`, margin, 12);
-      pdf.text(`Page ${pdf.getNumberOfPages()}`, pageWidth - margin - 15, 12);
-      yPos = 25;
+      pdf.text(`GeoPulse Comparison Report ${reportId}`, margin, 10);
+      pdf.text(`Page ${pdf.getNumberOfPages()}`, pageWidth - margin - 12, 10);
+      yPos = 20;
 
       // Executive Summary
       yPos = addSectionTitle("EXECUTIVE SUMMARY", yPos);
       
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
+      pdf.setFontSize(9);
       pdf.setTextColor(55, 65, 81);
       
       const executiveSummary = 
-        `This comparative environmental analysis examines ${eventInfo.label.toLowerCase()} patterns at ${comparisonResult.location} across two distinct time periods. ` +
-        `During Period 1 (${comparisonResult.period1.range}), the environmental change indicator measured ${comparisonResult.period1.changePercent.toFixed(1)}%. ` +
-        `In Period 2 (${comparisonResult.period2.range}), this changed to ${comparisonResult.period2.changePercent.toFixed(1)}%, representing a ${comparisonResult.comparison.difference}% ${comparisonResult.comparison.trend === "increasing" ? "increase" : comparisonResult.comparison.trend === "decreasing" ? "decrease" : "variation"}. ` +
-        `Based on our comprehensive satellite analysis and AI-powered pattern recognition, the overall trend is classified as ${trendAnalysis.status}.`;
+        `This comparative analysis examines ${eventInfo.label.toLowerCase()} at ${comparisonResult.location}. ` +
+        `Period 1 (${comparisonResult.period1.range}) measured ${comparisonResult.period1.changePercent.toFixed(1)}%. ` +
+        `Period 2 (${comparisonResult.period2.range}) changed to ${comparisonResult.period2.changePercent.toFixed(1)}%, a ${comparisonResult.comparison.difference}% ${comparisonResult.comparison.trend === "increasing" ? "increase" : comparisonResult.comparison.trend === "decreasing" ? "decrease" : "variation"}. ` +
+        `Overall trend: ${trendAnalysis.status}.`;
       
-      yPos = addWrappedText(executiveSummary, margin, yPos, contentWidth, 5);
-      yPos += 15;
+      yPos = addWrappedText(executiveSummary, margin, yPos, contentWidth, 4.5);
+      yPos += 12;
 
       // Comparative Insight
       yPos = addSectionTitle("TREND INTERPRETATION", yPos);
       
       pdf.setFillColor(249, 250, 251);
-      pdf.roundedRect(margin, yPos - 2, contentWidth, 25, 3, 3, "F");
+      pdf.roundedRect(margin, yPos - 2, contentWidth, 22, 3, 3, "F");
       
       pdf.setTextColor(55, 65, 81);
-      pdf.setFontSize(10);
-      yPos = addWrappedText(trendAnalysis.interpretation, margin + 5, yPos + 5, contentWidth - 10, 5);
-      yPos += 10;
+      pdf.setFontSize(9);
+      yPos = addWrappedText(trendAnalysis.interpretation, margin + 4, yPos + 4, contentWidth - 8, 4.5);
+      yPos += 8;
 
       pdf.setTextColor(107, 114, 128);
-      pdf.setFontSize(9);
+      pdf.setFontSize(8);
       pdf.setFont("helvetica", "italic");
-      yPos = addWrappedText(comparisonResult.comparison.insight, margin + 5, yPos, contentWidth - 10, 5);
-      yPos += 15;
+      const insightText = pdf.splitTextToSize(comparisonResult.comparison.insight, contentWidth - 8);
+      pdf.text(insightText.slice(0, 2), margin + 4, yPos);
+      yPos += (Math.min(insightText.length, 2) * 4) + 10;
 
       // Detailed Period Analysis
       yPos = addSectionTitle("PERIOD 1 ANALYSIS (BEFORE)", yPos);
       
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
+      pdf.setFontSize(9);
       pdf.setTextColor(55, 65, 81);
       
       const period1Summary = comparisonResult.period1.summary || 
-        `During the period from ${comparisonResult.period1.range}, satellite analysis detected a ${comparisonResult.period1.changePercent.toFixed(1)}% change in ${eventInfo.label.toLowerCase()} indicators. ` +
-        `The area analyzed covered ${comparisonResult.period1.area || "the designated region"}. This baseline period serves as the reference point for comparative assessment.`;
+        `During ${comparisonResult.period1.range}, satellite analysis detected ${comparisonResult.period1.changePercent.toFixed(1)}% change. ` +
+        `Area: ${comparisonResult.period1.area || "designated region"}. Baseline for comparison.`;
       
-      yPos = addWrappedText(period1Summary, margin, yPos, contentWidth, 5);
-      yPos += 12;
+      yPos = addWrappedText(period1Summary, margin, yPos, contentWidth, 4.5);
+      yPos += 10;
 
-      checkPageBreak(50);
+      checkPageBreak(40);
       yPos = addSectionTitle("PERIOD 2 ANALYSIS (AFTER)", yPos);
       
       const period2Summary = comparisonResult.period2.summary || 
-        `During the period from ${comparisonResult.period2.range}, satellite analysis detected a ${comparisonResult.period2.changePercent.toFixed(1)}% change in ${eventInfo.label.toLowerCase()} indicators. ` +
-        `The area analyzed covered ${comparisonResult.period2.area || "the designated region"}. Comparison with the baseline period reveals ${comparisonResult.comparison.trend} environmental impact.`;
+        `During ${comparisonResult.period2.range}, satellite analysis detected ${comparisonResult.period2.changePercent.toFixed(1)}% change. ` +
+        `Area: ${comparisonResult.period2.area || "designated region"}. Trend: ${comparisonResult.comparison.trend}.`;
       
-      yPos = addWrappedText(period2Summary, margin, yPos, contentWidth, 5);
-      yPos += 15;
+      yPos = addWrappedText(period2Summary, margin, yPos, contentWidth, 4.5);
+      yPos += 12;
 
       // Key Findings
-      checkPageBreak(60);
+      checkPageBreak(50);
       yPos = addSectionTitle("KEY FINDINGS", yPos);
 
       const findings = [
         {
-          type: "CHANGE MAGNITUDE",
-          detail: `The absolute change between periods is ${comparisonResult.comparison.difference}%, indicating ${parseFloat(comparisonResult.comparison.difference) > 10 ? "significant" : parseFloat(comparisonResult.comparison.difference) > 5 ? "moderate" : "minor"} environmental variation.`
+          type: "CHANGE",
+          detail: `Absolute change: ${comparisonResult.comparison.difference}% (${parseFloat(comparisonResult.comparison.difference) > 10 ? "significant" : "moderate"} variation).`
         },
         {
-          type: "TREND DIRECTION",
-          detail: `Environmental impact is ${comparisonResult.comparison.trend}, with Period 2 showing ${comparisonResult.comparison.trend === "increasing" ? "higher" : comparisonResult.comparison.trend === "decreasing" ? "lower" : "similar"} change levels compared to Period 1.`
+          type: "TREND",
+          detail: `Impact is ${comparisonResult.comparison.trend}. Period 2 shows ${comparisonResult.comparison.trend === "increasing" ? "higher" : comparisonResult.comparison.trend === "decreasing" ? "lower" : "similar"} levels.`
         },
         {
-          type: "RISK ASSESSMENT",
-          detail: `Period 1 risk level: ${period1Risk.level} (${period1Risk.description}). Period 2 risk level: ${period2Risk.level} (${period2Risk.description}).`
+          type: "RISK",
+          detail: `Period 1: ${period1Risk.level}. Period 2: ${period2Risk.level}.`
         },
         {
-          type: "INTERVENTION STATUS",
+          type: "ACTION",
           detail: comparisonResult.comparison.trend === "decreasing" 
-            ? "Positive trend suggests potential success of mitigation measures or natural recovery processes."
+            ? "Positive trend - continue current measures."
             : comparisonResult.comparison.trend === "increasing"
-            ? "Escalating trend indicates need for immediate intervention and enhanced monitoring."
-            : "Stable conditions suggest current management approach is maintaining equilibrium."
+            ? "Escalating - intervention needed."
+            : "Stable - maintain current approach."
         }
       ];
 
       findings.forEach((finding, index) => {
-        checkPageBreak(25);
+        checkPageBreak(18);
         
         pdf.setFillColor(249, 250, 251);
-        pdf.roundedRect(margin, yPos - 4, contentWidth, 20, 2, 2, "F");
+        pdf.roundedRect(margin, yPos - 3, contentWidth, 16, 2, 2, "F");
         
         pdf.setFillColor(8, 145, 178);
-        pdf.circle(margin + 6, yPos + 4, 3, "F");
+        pdf.circle(margin + 5, yPos + 3, 2.5, "F");
         pdf.setTextColor(255, 255, 255);
-        pdf.setFontSize(8);
+        pdf.setFontSize(7);
         pdf.setFont("helvetica", "bold");
-        pdf.text(String(index + 1), margin + 4.5, yPos + 6);
+        pdf.text(String(index + 1), margin + 3.8, yPos + 4.5);
         
         pdf.setTextColor(17, 24, 39);
-        pdf.setFontSize(10);
+        pdf.setFontSize(8);
         pdf.setFont("helvetica", "bold");
-        pdf.text(finding.type, margin + 14, yPos + 4);
+        pdf.text(finding.type, margin + 12, yPos + 2);
         
         pdf.setFont("helvetica", "normal");
         pdf.setTextColor(55, 65, 81);
-        pdf.setFontSize(9);
-        const wrappedFinding = pdf.splitTextToSize(finding.detail, contentWidth - 20);
-        pdf.text(wrappedFinding.slice(0, 2).join(' '), margin + 14, yPos + 12);
+        pdf.setFontSize(8);
+        const wrappedFinding = pdf.splitTextToSize(finding.detail, contentWidth - 16);
+        pdf.text(wrappedFinding[0] || '', margin + 12, yPos + 9);
         
-        yPos += 24;
+        yPos += 18;
       });
 
       // ============= PAGE 3 - RECOMMENDATIONS =============
       pdf.addPage();
       yPos = margin;
       
-      pdf.setFontSize(8);
+      pdf.setFontSize(7);
       pdf.setTextColor(156, 163, 175);
-      pdf.text(`GeoPulse Comparison Report ${reportId}`, margin, 12);
-      pdf.text(`Page ${pdf.getNumberOfPages()}`, pageWidth - margin - 15, 12);
-      yPos = 25;
+      pdf.text(`GeoPulse Comparison Report ${reportId}`, margin, 10);
+      pdf.text(`Page ${pdf.getNumberOfPages()}`, pageWidth - margin - 12, 10);
+      yPos = 20;
 
       yPos = addSectionTitle("RECOMMENDATIONS", yPos);
 
       const recommendations = comparisonResult.comparison.trend === "increasing" ? [
-        { priority: "HIGH", action: "Implement immediate monitoring protocols for the affected region", timeline: "Within 2 weeks" },
-        { priority: "HIGH", action: "Conduct ground-truth verification of satellite findings", timeline: "Within 1 month" },
-        { priority: "MEDIUM", action: "Develop intervention strategy based on specific impact zones", timeline: "Within 2 months" },
-        { priority: "MEDIUM", action: "Establish stakeholder communication for coordinated response", timeline: "Ongoing" },
-        { priority: "LOW", action: "Schedule follow-up comparative analysis to track changes", timeline: "Quarterly" }
+        { priority: "HIGH", action: "Implement monitoring protocols", timeline: "2 weeks" },
+        { priority: "HIGH", action: "Ground-truth verification", timeline: "1 month" },
+        { priority: "MEDIUM", action: "Develop intervention strategy", timeline: "2 months" },
+        { priority: "LOW", action: "Follow-up comparative analysis", timeline: "Quarterly" }
       ] : comparisonResult.comparison.trend === "decreasing" ? [
-        { priority: "MEDIUM", action: "Document successful intervention strategies for replication", timeline: "Within 1 month" },
-        { priority: "MEDIUM", action: "Continue current monitoring and management practices", timeline: "Ongoing" },
-        { priority: "LOW", action: "Analyze contributing factors to positive trend", timeline: "Within 2 months" },
-        { priority: "LOW", action: "Share findings with relevant environmental agencies", timeline: "Within 1 month" },
-        { priority: "LOW", action: "Plan long-term sustainability assessment", timeline: "Within 6 months" }
+        { priority: "MEDIUM", action: "Document successful strategies", timeline: "1 month" },
+        { priority: "MEDIUM", action: "Continue current practices", timeline: "Ongoing" },
+        { priority: "LOW", action: "Analyze contributing factors", timeline: "2 months" },
+        { priority: "LOW", action: "Plan sustainability assessment", timeline: "6 months" }
       ] : [
-        { priority: "MEDIUM", action: "Maintain current environmental monitoring frequency", timeline: "Ongoing" },
-        { priority: "LOW", action: "Review and optimize existing management protocols", timeline: "Within 3 months" },
-        { priority: "LOW", action: "Conduct periodic comparative assessments", timeline: "Semi-annually" },
-        { priority: "LOW", action: "Update baseline data for future comparisons", timeline: "Annually" }
+        { priority: "MEDIUM", action: "Maintain monitoring frequency", timeline: "Ongoing" },
+        { priority: "LOW", action: "Review management protocols", timeline: "3 months" },
+        { priority: "LOW", action: "Periodic assessments", timeline: "Semi-annually" }
       ];
 
       recommendations.forEach((rec, index) => {
-        checkPageBreak(22);
+        checkPageBreak(18);
         
         const priorityColors: Record<string, [number, number, number]> = {
           "HIGH": [220, 38, 38],
@@ -453,75 +458,75 @@ const ComparisonReportGenerator = ({ comparisonResult }: ComparisonReportGenerat
         };
         
         pdf.setFillColor(249, 250, 251);
-        pdf.roundedRect(margin, yPos - 3, contentWidth, 18, 2, 2, "F");
+        pdf.roundedRect(margin, yPos - 2, contentWidth, 14, 2, 2, "F");
         
         pdf.setFillColor(...priorityColors[rec.priority]);
-        pdf.roundedRect(margin + 3, yPos, 25, 6, 1, 1, "F");
+        pdf.roundedRect(margin + 3, yPos, 20, 5, 1, 1, "F");
         pdf.setTextColor(255, 255, 255);
-        pdf.setFontSize(7);
+        pdf.setFontSize(6);
         pdf.setFont("helvetica", "bold");
-        pdf.text(rec.priority, margin + 6, yPos + 4);
+        pdf.text(rec.priority, margin + 5, yPos + 3.5);
         
         pdf.setTextColor(17, 24, 39);
-        pdf.setFontSize(9);
+        pdf.setFontSize(8);
         pdf.setFont("helvetica", "bold");
-        pdf.text(rec.action, margin + 32, yPos + 4);
+        const actionText = pdf.splitTextToSize(rec.action, contentWidth - 70)[0];
+        pdf.text(actionText, margin + 28, yPos + 3.5);
         
         pdf.setTextColor(107, 114, 128);
-        pdf.setFontSize(8);
+        pdf.setFontSize(7);
         pdf.setFont("helvetica", "normal");
-        pdf.text(`Timeline: ${rec.timeline}`, margin + 32, yPos + 11);
+        pdf.text(rec.timeline, margin + 28, yPos + 9);
         
-        yPos += 20;
+        yPos += 16;
       });
 
-      yPos += 10;
+      yPos += 8;
 
       // Data Sources
-      checkPageBreak(50);
+      checkPageBreak(45);
       yPos = addSectionTitle("DATA SOURCES & METHODOLOGY", yPos);
       
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
+      pdf.setFontSize(8);
       pdf.setTextColor(75, 85, 99);
       
       const methodology = 
-        "This comparative analysis utilizes multi-spectral satellite imagery processed through advanced change detection algorithms. " +
-        "Environmental indicators are derived from validated indices including NDVI, NDWI, and thermal analysis where applicable. " +
-        "AI-powered pattern recognition enhances detection accuracy with confidence levels exceeding 85% for standard assessments.";
+        "Comparative analysis uses multi-spectral satellite imagery with advanced change detection. " +
+        "Environmental indicators derived from NDVI, NDWI, and thermal analysis. AI-powered pattern recognition with 85%+ confidence.";
       
-      yPos = addWrappedText(methodology, margin, yPos, contentWidth, 5);
-      yPos += 10;
+      yPos = addWrappedText(methodology, margin, yPos, contentWidth, 4);
+      yPos += 8;
 
       const sources = [
         "• Sentinel-2 Multi-Spectral Imagery",
         "• Landsat 8/9 OLI-TIRS Data",
         "• MODIS Terra/Aqua Products",
-        "• GeoPulse AI Analysis Engine v2.0"
+        "• GeoPulse AI Engine v2.0"
       ];
 
       sources.forEach(source => {
         pdf.text(source, margin, yPos);
-        yPos += 5;
+        yPos += 4;
       });
 
-      yPos += 15;
+      yPos += 10;
 
       // Footer
       pdf.setFillColor(8, 145, 178);
-      pdf.rect(0, pageHeight - 20, pageWidth, 20, "F");
+      pdf.rect(0, pageHeight - 16, pageWidth, 16, "F");
       
       pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(8);
+      pdf.setFontSize(7);
       pdf.setFont("helvetica", "normal");
-      pdf.text("GeoPulse Environmental Intelligence Platform", margin, pageHeight - 12);
-      pdf.text(`Generated: ${reportDate.toISOString()}`, margin, pageHeight - 7);
+      pdf.text("GeoPulse Environmental Intelligence Platform", margin, pageHeight - 9);
+      pdf.text(`Generated: ${reportDate.toISOString().split('T')[0]}`, margin, pageHeight - 5);
       
       pdf.setFont("helvetica", "bold");
-      pdf.text("www.geopulse.ai", pageWidth - margin - 30, pageHeight - 10);
+      pdf.text("www.geopulse.ai", pageWidth - margin - 28, pageHeight - 7);
 
       // Save PDF
-      const filename = `GeoPulse_Comparison_${comparisonResult.location.replace(/[^a-zA-Z0-9]/g, "_")}_${reportDate.toISOString().split("T")[0]}.pdf`;
+      const filename = `GeoPulse_Comparison_${comparisonResult.location.replace(/[^a-zA-Z0-9]/g, "_").substring(0, 20)}_${reportDate.toISOString().split("T")[0]}.pdf`;
       pdf.save(filename);
 
       toast.success("Comparison report downloaded successfully!");
