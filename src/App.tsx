@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navigation from "./components/Navigation";
 import AIAssistant from "./components/AIAssistant";
+import DemoRecorder from "./components/DemoRecorder";
 import Home from "./pages/Home";
 import GeoWitness from "./pages/GeoWitness";
 import GeoSearch from "./pages/GeoSearch";
@@ -44,6 +45,7 @@ const App = () => (
                   </Routes>
                 </div>
                 <AIAssistant />
+                <DemoRecorder />
               </div>
             }
           />
