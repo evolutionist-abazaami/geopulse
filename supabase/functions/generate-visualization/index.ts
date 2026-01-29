@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Input validation helpers
-const ALLOWED_VISUALIZATION_TYPES = ['map', 'chart', 'heatmap', 'comparison', 'infographic'];
+const ALLOWED_VISUALIZATION_TYPES = ['map', 'chart', 'heatmap', 'comparison', 'infographic', 'satellite_2d', 'satellite_3d', 'satellite_4d', 'predictive', 'timeline'];
 
 function validateString(value: unknown, fieldName: string, maxLength: number, required = false): string | null {
   if (value === undefined || value === null) {
@@ -53,21 +53,14 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const authHeader = req.headers.get("authorization");
     
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Authentication required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Invalid or expired authentication token" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Allow unauthenticated access for visualization generation
+    let user = null;
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      if (token && !token.startsWith("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6")) {
+        const { data } = await supabase.auth.getUser(token);
+        user = data?.user || null;
+      }
     }
 
     // Parse and validate input
@@ -76,10 +69,11 @@ serve(async (req) => {
     const visualizationType = validateVisualizationType(body.visualizationType);
     const region = validateString(body.region, 'region', 200) || 'Africa';
     const eventType = validateString(body.eventType, 'eventType', 100) || 'environmental changes';
-    // data is optional and not directly used in prompts, so we just validate it exists if provided
-    if (body.data !== undefined && typeof body.data !== 'object') {
-      throw new Error('Data must be an object if provided');
-    }
+    const changePercent = body.changePercent || body.data?.changePercent || 0;
+    const severity = body.severity || body.data?.severity || 'medium';
+    
+    // Extract predictive data if available
+    const predictiveData = body.predictiveModeling || body.data?.predictiveModeling;
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
@@ -87,26 +81,109 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    console.log(`Generating ${visualizationType} visualization for ${region} for user ${user.id}`);
+    console.log(`Generating ${visualizationType} visualization for ${region} - User: ${user?.id || 'anonymous'}`);
 
-    // Create detailed prompt based on visualization type
+    // Enhanced prompts for realistic satellite imagery
     let prompt = "";
     switch (visualizationType) {
+      case "satellite_2d":
+        prompt = `Create a hyper-realistic 2D satellite imagery view of ${region}, Africa showing ${eventType}. 
+Photorealistic Sentinel-2 style satellite image with true color composite (RGB bands). 
+Show affected areas with subtle color differences indicating ${Math.abs(changePercent)}% ${eventType} change.
+Include: Cloud-free imagery, sharp terrain features, visible infrastructure, river systems, vegetation patterns.
+${severity === 'critical' ? 'Show dramatic visible damage/change in affected zones.' : ''}
+Professional cartographic quality with north arrow and scale bar. 
+Ultra high resolution, 16:9 aspect ratio, photorealistic satellite imagery style.`;
+        break;
+        
+      case "satellite_3d":
+        prompt = `Create a stunning 3D terrain visualization of ${region}, Africa showing ${eventType} impacts.
+Oblique 3D perspective view with realistic terrain elevation from SRTM DEM data.
+Show topographic features: mountains, valleys, river basins, coastlines with dramatic shadows.
+Overlay ${eventType} impact data as semi-transparent color gradation (green-yellow-red intensity).
+${changePercent > 20 ? 'Highlight critical change areas with glowing boundaries.' : ''}
+Include: 3D vegetation representation, atmospheric haze for depth, realistic lighting.
+Professional 3D GIS visualization style, ultra high resolution, 16:9 aspect ratio.`;
+        break;
+        
+      case "satellite_4d":
+        prompt = `Create a temporal 4D visualization showing ${eventType} change over time in ${region}, Africa.
+Split-panel or animated sequence style showing BEFORE and AFTER satellite imagery.
+Left panel: "2022" with original conditions - lush vegetation/normal state.
+Right panel: "2024" with ${Math.abs(changePercent)}% ${eventType} change visible.
+Include dramatic visual difference highlighting environmental transformation.
+Add temporal annotations, timeline indicator, and change detection overlay.
+${predictiveData ? `Show projected future state for 2025 with ${predictiveData.projected_change_12mo}% additional change.` : ''}
+Professional time-series analysis style, photorealistic, 16:9 aspect ratio.`;
+        break;
+        
+      case "predictive":
+        prompt = `Create a predictive modeling visualization for ${eventType} in ${region}, Africa.
+Show projected environmental changes over the next 12 months.
+Include: Current state indicator, trend arrows, confidence bands, projection zones.
+Use gradient colors from current (blue) through projected (orange/red for decline, green for improvement).
+${predictiveData ? `Trend: ${predictiveData.trend_direction}, 6-month projection: ${predictiveData.projected_change_6mo}%, 12-month projection: ${predictiveData.projected_change_12mo}%` : ''}
+Add predictive heat zones showing high-probability change areas.
+Professional scientific forecasting visualization, 16:9 aspect ratio.`;
+        break;
+        
+      case "timeline":
+        prompt = `Create an animated timeline visualization showing ${eventType} progression in ${region}, Africa.
+Circular or linear timeline design showing yearly changes from 2020-2025.
+Each time point shows satellite snapshot with change percentage overlay.
+Progressive color shift from green (healthy) through yellow to red (critical) based on degradation.
+Include: Timeline markers, percentage annotations, trend line, key event callouts.
+Professional animated infographic style, 16:9 aspect ratio.`;
+        break;
+
       case "map":
-        prompt = `Create a professional satellite map visualization showing ${eventType} in ${region}. Show affected areas highlighted in red/orange, with a clean legend, scale bar, and north arrow. The map should have a topographic style with clear terrain features. Ultra high resolution, professional cartographic style, scientific visualization. 16:9 aspect ratio.`;
+        prompt = `Create a professional satellite map visualization showing ${eventType} in ${region}, Africa. 
+Photorealistic satellite basemap with affected areas highlighted in red/orange heat overlay.
+Include: Clean legend, scale bar, north arrow, coordinate grid.
+Topographic style with clear terrain features, river networks, urban areas marked.
+Show ${Math.abs(changePercent)}% change with intensity-based coloring.
+Ultra high resolution, professional cartographic style, 16:9 aspect ratio.`;
         break;
+        
       case "chart":
-        prompt = `Create a professional data visualization chart showing ${eventType} trends over time for ${region}. Include a line graph with percentage change on Y-axis and years on X-axis. Use blue and orange color scheme, clean modern design with gridlines, proper axis labels, and a title. Professional scientific chart style. 16:9 aspect ratio.`;
+        prompt = `Create a professional data visualization chart showing ${eventType} trends over time for ${region}.
+Modern line graph with percentage change on Y-axis (-50% to +50%) and years 2020-2025 on X-axis.
+Use gradient blue-to-red color scheme based on severity.
+Include: Clean gridlines, proper axis labels, data points with values, trend line, projection zone.
+Add confidence interval shading and annotation for key events.
+Professional scientific chart style, 16:9 aspect ratio.`;
         break;
+        
       case "heatmap":
-        prompt = `Create a professional heatmap visualization showing the intensity of ${eventType} across ${region}. Use a gradient from green (low) through yellow to red (high intensity). Include a legend showing intensity scale, clean borders, and geographic labels. Scientific visualization style. 16:9 aspect ratio.`;
+        prompt = `Create a professional heatmap visualization showing intensity of ${eventType} across ${region}, Africa.
+Geographic heatmap with gradient: Dark green (low impact) → Yellow → Orange → Dark red (high impact).
+Include: Clear legend showing intensity scale (0-100%), geographic labels, regional boundaries.
+Overlay on subtle satellite basemap for geographic context.
+Show hotspots and clusters of ${eventType} activity.
+Scientific visualization style, 16:9 aspect ratio.`;
         break;
+        
       case "comparison":
-        prompt = `Create a professional before/after satellite comparison visualization for ${region} showing ${eventType}. Split view with "Before" on left and "After" on right, with clear labels, date markers, and highlighted change areas. Professional remote sensing visualization style. 16:9 aspect ratio.`;
+        prompt = `Create a professional before/after satellite comparison for ${region} showing ${eventType}.
+Clean split-view: "BEFORE (2022)" on left, "AFTER (2024)" on right.
+Photorealistic satellite imagery style for both panels.
+Highlight changed areas with subtle boundary outlines.
+Include: Date labels, change percentage overlay (${Math.abs(changePercent)}%), scale bar.
+${severity === 'critical' ? 'Dramatic visible transformation between panels.' : 'Subtle but detectable differences.'}
+Professional remote sensing visualization, 16:9 aspect ratio.`;
         break;
+        
       default:
-        prompt = `Create a professional environmental analysis infographic for ${region} showing ${eventType}. Include charts, maps, and key statistics in a clean, modern design. Professional scientific poster style. 16:9 aspect ratio.`;
+        prompt = `Create a professional environmental analysis infographic for ${region} showing ${eventType}.
+Include: Satellite imagery section, key statistics (${Math.abs(changePercent)}% change), trend chart, recommendations.
+Clean, modern design with data visualization elements.
+Professional scientific poster style, 16:9 aspect ratio.`;
     }
+
+    // Use higher quality model for satellite imagery
+    const model = ['satellite_2d', 'satellite_3d', 'satellite_4d', 'predictive'].includes(visualizationType)
+      ? "google/gemini-3-pro-image-preview"
+      : "google/gemini-2.5-flash-image-preview";
 
     // Call Lovable AI image generation
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -116,7 +193,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
+        model,
         messages: [
           {
             role: "user",
@@ -172,7 +249,8 @@ serve(async (req) => {
         success: true,
         imageUrl,
         description: message?.content || "Visualization generated successfully",
-        visualizationType
+        visualizationType,
+        model
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
