@@ -8,14 +8,20 @@ import SavedLocations from "@/components/SavedLocations";
 import ComparisonMode from "@/components/ComparisonMode";
 import TimeLapseAnimation from "@/components/TimeLapseAnimation";
 import GISExportButton from "@/components/GISExportButton";
+import MultiEventSelector from "@/components/MultiEventSelector";
+import ShapefileImport from "@/components/ShapefileImport";
+import CloudCoverageDisplay from "@/components/CloudCoverageDisplay";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Play, AlertTriangle, Loader2, MousePointer, Upload, ChevronDown, Star, GitCompare, Clock } from "lucide-react";
+import { Play, AlertTriangle, Loader2, MousePointer, Upload, ChevronDown, Star, GitCompare, Clock, Layers, FileType } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AnalysisFeature } from "@/lib/gis-export";
@@ -85,6 +91,8 @@ const eventTypes = [
 
 const GeoWitness = () => {
   const [eventType, setEventType] = useState("deforestation");
+  const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([]);
+  const [isMultiEventMode, setIsMultiEventMode] = useState(false);
   const [region, setRegion] = useState("");
   const [startDate, setStartDate] = useState("2022-01-01");
   const [endDate, setEndDate] = useState("2024-01-01");
@@ -99,6 +107,7 @@ const GeoWitness = () => {
   const [activeTab, setActiveTab] = useState("search");
   const [is3DEnabled, setIs3DEnabled] = useState(false);
   const [activeHeatmapLayer, setActiveHeatmapLayer] = useState<HeatmapLayerType>("none");
+  const [importedFeatures, setImportedFeatures] = useState<AnalysisFeature[]>([]);
 
   const handleLocationSelect = (location: { name: string; lat: number; lng: number; bounds?: [[number, number], [number, number]] }) => {
     setRegion(location.name);
@@ -115,15 +124,40 @@ const GeoWitness = () => {
     toast.success(`Selected: ${location.name}`);
   };
 
+  const handleShapefileImport = (features: AnalysisFeature[], bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => {
+    setImportedFeatures(features);
+    
+    // Add markers for all imported features
+    const markers = features.map((f, i) => ({
+      lat: f.coordinates.lat,
+      lng: f.coordinates.lng,
+      label: f.name,
+      color: "#3b82f6"
+    }));
+    setMapMarkers(markers);
+    
+    // Fit map to bounds
+    const centerLat = (bounds.minLat + bounds.maxLat) / 2;
+    const centerLng = (bounds.minLng + bounds.maxLng) / 2;
+    setMapCenter([centerLat, centerLng]);
+    setMapZoom(8);
+    
+    toast.success(`Loaded ${features.length} features from GIS file`);
+  };
+
   const runAnalysis = async () => {
     if (!region && !selectedLocation) {
       toast.error("Please select a location first");
       return;
     }
 
+    const eventTypesToAnalyze = isMultiEventMode && selectedEventTypes.length > 0 
+      ? selectedEventTypes 
+      : [eventType];
+
     setIsAnalyzing(true);
     setResults(null);
-    toast.info("Starting AI-powered satellite analysis...");
+    toast.info(`Starting AI-powered satellite analysis for ${eventTypesToAnalyze.length} event type(s)...`);
 
     try {
       const coordinates = selectedLocation || { lat: mapCenter[0], lng: mapCenter[1] };
@@ -138,7 +172,8 @@ const GeoWitness = () => {
             "Authorization": `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
-            eventType,
+            eventTypes: eventTypesToAnalyze,
+            eventType: eventTypesToAnalyze[0],
             region: region || selectedLocation?.name,
             startDate,
             endDate,
@@ -296,6 +331,13 @@ const GeoWitness = () => {
               Time-Lapse
             </TabsTrigger>
             <TabsTrigger 
+              value="import" 
+              className="flex-1 min-w-[80px] rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2 px-2 text-xs sm:text-sm"
+            >
+              <FileType className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+              GIS Import
+            </TabsTrigger>
+            <TabsTrigger 
               value="upload" 
               className="flex-1 min-w-[80px] rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2 px-2 text-xs sm:text-sm"
             >
@@ -312,24 +354,45 @@ const GeoWitness = () => {
               </h3>
               
               <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Event Type</label>
-                  <Select value={eventType} onValueChange={setEventType}>
-                    <SelectTrigger className="bg-card">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      {eventTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          <span className="flex items-center gap-2">
-                            <span>{type.icon}</span>
-                            {type.label}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                {/* Multi-Event Toggle */}
+                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-4 w-4" />
+                    <Label htmlFor="multi-event" className="text-sm font-medium">Multi-Event Analysis</Label>
+                  </div>
+                  <Switch
+                    id="multi-event"
+                    checked={isMultiEventMode}
+                    onCheckedChange={setIsMultiEventMode}
+                  />
                 </div>
+
+                {isMultiEventMode ? (
+                  <MultiEventSelector
+                    selectedEvents={selectedEventTypes}
+                    onSelectionChange={setSelectedEventTypes}
+                    maxSelection={5}
+                  />
+                ) : (
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Event Type</label>
+                    <Select value={eventType} onValueChange={setEventType}>
+                      <SelectTrigger className="bg-card">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {eventTypes.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            <span className="flex items-center gap-2">
+                              <span>{type.icon}</span>
+                              {type.label}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div>
                   <label className="text-sm font-medium mb-2 block">Search Location</label>
@@ -423,20 +486,70 @@ const GeoWitness = () => {
               <div className="space-y-4 pt-4 border-t border-border">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-lg">Analysis Results</h4>
+                  {results.isMultiEvent && (
+                    <Badge variant="secondary" className="text-xs">
+                      <Layers className="h-3 w-3 mr-1" />
+                      Multi-Event
+                    </Badge>
+                  )}
                 </div>
+
+                {/* Cloud Coverage & Quality Display */}
+                <CloudCoverageDisplay
+                  cloudCoverage={results.cloudCoverage?.percentage}
+                  dataQuality={results.dataQuality?.overall_score}
+                  analysisConfidence={results.analysisConfidence}
+                  sensorType={results.sensorInfo?.primary_sensor}
+                  acquisitionDate={results.sensorInfo?.acquisition_dates?.[0]}
+                />
 
                 <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
                   <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="font-semibold text-destructive text-sm">High Impact Detected</p>
+                    <p className="font-semibold text-destructive text-sm">
+                      {results.severity === 'critical' ? 'Critical Impact' : 
+                       results.severity === 'high' ? 'High Impact' : 
+                       results.severity === 'medium' ? 'Moderate Impact' : 'Low Impact'} Detected
+                    </p>
                     <p className="text-xs text-muted-foreground">Attention recommended</p>
                   </div>
                 </div>
 
+                {/* Multi-Event Results */}
+                {results.multiEventAnalysis?.events && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground font-medium">Events Analyzed:</p>
+                    {results.multiEventAnalysis.events.map((event: any, i: number) => (
+                      <div key={i} className="p-2 bg-muted/30 rounded-md flex items-center justify-between">
+                        <span className="text-sm capitalize">{event.event_type.replace(/_/g, ' ')}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant={event.severity === 'critical' ? 'destructive' : 
+                                    event.severity === 'high' ? 'destructive' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {event.change_percent}%
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                    {results.multiEventAnalysis.combined_impact && (
+                      <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg mt-2">
+                        <p className="text-xs text-muted-foreground mb-1">Combined Impact</p>
+                        <p className="text-sm">{results.multiEventAnalysis.combined_impact}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 bg-muted/50 rounded-lg">
                     <p className="text-xs text-muted-foreground">Event</p>
-                    <p className="font-semibold text-sm capitalize">{results.eventType}</p>
+                    <p className="font-semibold text-sm capitalize">
+                      {results.isMultiEvent 
+                        ? `${results.eventTypes?.length || 1} events`
+                        : results.eventType?.replace(/_/g, ' ')}
+                    </p>
                   </div>
                   <div className="p-3 bg-muted/50 rounded-lg">
                     <p className="text-xs text-muted-foreground">Change</p>
@@ -454,6 +567,27 @@ const GeoWitness = () => {
                   <p className="text-sm leading-relaxed">{results.summary}</p>
                 </div>
 
+                {/* Predictive Modeling */}
+                {results.predictiveModeling && (
+                  <div className="p-3 bg-muted/30 rounded-lg border">
+                    <p className="text-xs text-muted-foreground mb-2 font-medium">Predictive Modeling</p>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Trend</p>
+                        <p className="text-sm font-medium capitalize">{results.predictiveModeling.trend_direction}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">6-Month</p>
+                        <p className="text-sm font-medium">{results.predictiveModeling.projected_change_6mo}%</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">12-Month</p>
+                        <p className="text-sm font-medium">{results.predictiveModeling.projected_change_12mo}%</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {results.fullAnalysis && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Detailed Analysis</p>
@@ -466,7 +600,7 @@ const GeoWitness = () => {
                 <div className="flex flex-wrap gap-2">
                   <ReportGenerator 
                     analysisData={results} 
-                    eventType={eventType}
+                    eventType={results.isMultiEvent ? results.eventTypes?.join(', ') : eventType}
                     region={region || selectedLocation?.name}
                   />
                   <GISExportButton
@@ -506,6 +640,34 @@ const GeoWitness = () => {
               }}
               mapCenter={mapCenter}
             />
+          </TabsContent>
+
+          <TabsContent value="import" className="flex-1 p-4 md:p-6 mt-0 overflow-y-auto">
+            <div className="space-y-4">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <FileType className="h-5 w-5 text-primary" />
+                Import GIS Data
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Import Shapefiles (.shp) or GeoJSON files for analysis. 
+                Compatible with QGIS, ArcGIS, and other GIS applications.
+              </p>
+              <ShapefileImport onImport={handleShapefileImport} />
+              
+              {importedFeatures.length > 0 && (
+                <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                  <p className="text-sm font-medium text-primary mb-2">
+                    {importedFeatures.length} features loaded
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <GISExportButton
+                      features={importedFeatures}
+                      filename="geopulse-imported"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="upload" className="flex-1 p-4 md:p-6 mt-0 overflow-y-auto">
