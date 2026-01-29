@@ -106,19 +106,29 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
     const isSimple = reportType === "simple";
 
     try {
-      // Generate visualizations if enabled
+      // Generate Landsat visualizations if enabled
       let mapImage: string | null = null;
       let chartImage: string | null = null;
+      let classificationImage: string | null = null;
 
       if (includeImages) {
-        setGenerationStep("Generating satellite visualization...");
-        mapImage = await generateVisualization("map");
+        setGenerationStep("Generating Landsat true-color satellite imagery...");
+        mapImage = await generateVisualization("landsat_truecolor");
         
-        setGenerationStep("Generating trend analysis chart...");
+        // If classification data exists, generate classification map
+        if (analysisData?.classificationResults) {
+          setGenerationStep("Generating land cover classification map...");
+          classificationImage = await generateVisualization("classification_map");
+        } else if (analysisData?.changeDetection) {
+          setGenerationStep("Generating change detection map...");
+          classificationImage = await generateVisualization("change_detection_map");
+        }
+        
+        setGenerationStep("Generating spectral indices analysis chart...");
         chartImage = await generateVisualization("chart");
       }
 
-      setGenerationStep("Compiling professional report...");
+      setGenerationStep("Compiling professional Landsat report...");
 
       // Create PDF with high quality settings
       const pdf = new jsPDF({

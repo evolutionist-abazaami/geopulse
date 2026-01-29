@@ -6,22 +6,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Input validation helpers
-const ALLOWED_VISUALIZATION_TYPES = ['map', 'chart', 'heatmap', 'comparison', 'infographic', 'satellite_2d', 'satellite_3d', 'satellite_4d', 'predictive', 'timeline'];
+const ALLOWED_VISUALIZATION_TYPES = [
+  'map', 'chart', 'heatmap', 'comparison', 'infographic', 
+  'satellite_2d', 'satellite_3d', 'satellite_4d', 'predictive', 'timeline',
+  'landsat_truecolor', 'landsat_falsecolor', 'landsat_ndvi', 'landsat_change',
+  'classification_map', 'change_detection_map'
+];
 
 function validateString(value: unknown, fieldName: string, maxLength: number, required = false): string | null {
   if (value === undefined || value === null) {
-    if (required) {
-      throw new Error(`${fieldName} is required`);
-    }
+    if (required) throw new Error(`${fieldName} is required`);
     return null;
   }
-  if (typeof value !== 'string') {
-    throw new Error(`${fieldName} must be a string`);
-  }
-  if (value.length > maxLength) {
-    throw new Error(`${fieldName} must be ${maxLength} characters or less`);
-  }
+  if (typeof value !== 'string') throw new Error(`${fieldName} must be a string`);
+  if (value.length > maxLength) throw new Error(`${fieldName} must be ${maxLength} characters or less`);
   return value.trim();
 }
 
@@ -42,7 +40,6 @@ serve(async (req) => {
   }
 
   try {
-    // Check authentication first
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
@@ -53,7 +50,6 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const authHeader = req.headers.get("authorization");
     
-    // Allow unauthenticated access for visualization generation
     let user = null;
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
@@ -63,7 +59,6 @@ serve(async (req) => {
       }
     }
 
-    // Parse and validate input
     const body = await req.json();
     
     const visualizationType = validateVisualizationType(body.visualizationType);
@@ -71,8 +66,10 @@ serve(async (req) => {
     const eventType = validateString(body.eventType, 'eventType', 100) || 'environmental changes';
     const changePercent = body.changePercent || body.data?.changePercent || 0;
     const severity = body.severity || body.data?.severity || 'medium';
-    
-    // Extract predictive data if available
+    const spectralIndices = body.spectralIndices || body.data?.spectralIndices;
+    const classificationResults = body.classificationResults || body.data?.classificationResults;
+    const changeDetection = body.changeDetection || body.data?.changeDetection;
+    const landsatInfo = body.landsatInfo || body.data?.landsatInfo;
     const predictiveData = body.predictiveModeling || body.data?.predictiveModeling;
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -83,64 +80,180 @@ serve(async (req) => {
 
     console.log(`Generating ${visualizationType} visualization for ${region} - User: ${user?.id || 'anonymous'}`);
 
-    // Enhanced prompts for realistic satellite imagery
     let prompt = "";
     switch (visualizationType) {
+      // === LANDSAT MULTISPECTRAL IMAGERY ===
+      case "landsat_truecolor":
+        prompt = `Create a hyper-realistic Landsat 8/9 OLI true-color satellite image of ${region}, Africa.
+Bands 4-3-2 (Red-Green-Blue) composite at 30m resolution.
+REQUIREMENTS:
+- Photorealistic appearance matching actual Landsat imagery
+- Clear visibility of terrain features: rivers, forests, urban areas, agricultural fields
+- Accurate color representation: green vegetation, blue water, gray urban, brown bare soil
+- Include natural atmospheric haze for realism
+- Cloud-free or minimal cloud coverage
+- Show ${Math.abs(changePercent)}% ${eventType} change indicators if applicable
+Technical specifications: Path/Row overlay, scale bar, north arrow, coordinate grid.
+${landsatInfo ? `Sensor: ${landsatInfo.sensor}, Acquisition: ${landsatInfo.acquisition_dates?.join(', ')}` : 'Landsat 8 OLI, 30m resolution'}
+Ultra high resolution, 16:9 aspect ratio, professional remote sensing quality.`;
+        break;
+
+      case "landsat_falsecolor":
+        prompt = `Create a Landsat 8/9 OLI false-color composite satellite image of ${region}, Africa.
+Bands 5-4-3 (NIR-Red-Green) for vegetation analysis OR Bands 7-6-4 (SWIR2-SWIR1-Red) for geology.
+REQUIREMENTS:
+- Vegetation appears bright red/pink (healthy) to dark red (stressed)
+- Water appears dark blue to black
+- Urban areas appear cyan/gray
+- Bare soil appears brown/tan
+- Fire scars appear dark brown/black
+- Clearly shows ${eventType} patterns
+${spectralIndices ? `NDVI range: ${spectralIndices.ndvi?.min?.toFixed(2)} to ${spectralIndices.ndvi?.max?.toFixed(2)}` : ''}
+Include legend explaining color interpretation.
+Professional remote sensing visualization, 16:9 aspect ratio.`;
+        break;
+
+      case "landsat_ndvi":
+        prompt = `Create a Landsat-derived NDVI (Normalized Difference Vegetation Index) map of ${region}, Africa.
+NDVI = (NIR - Red) / (NIR + Red) visualization.
+COLOR SCHEME:
+- Dark red/brown (-1 to 0): Water, bare soil, urban
+- Yellow/light green (0 to 0.3): Sparse vegetation, stressed crops
+- Green (0.3 to 0.6): Moderate vegetation, agriculture
+- Dark green (0.6 to 1.0): Dense healthy vegetation, forests
+${spectralIndices?.ndvi ? `
+Data: Min ${spectralIndices.ndvi.min?.toFixed(2)}, Max ${spectralIndices.ndvi.max?.toFixed(2)}, Mean ${spectralIndices.ndvi.mean?.toFixed(2)}` : ''}
+Include continuous color bar legend with NDVI values.
+Show ${Math.abs(changePercent)}% vegetation change related to ${eventType}.
+Scientific vegetation health map, 30m Landsat resolution, 16:9 aspect ratio.`;
+        break;
+
+      case "landsat_change":
+        prompt = `Create a Landsat-based temporal change detection map for ${region}, Africa.
+Multi-date composite showing ${eventType} changes.
+VISUALIZATION:
+- Use bi-temporal RGB: Red=Before, Green=After, Blue=After
+- Magenta areas = loss/decrease
+- Cyan areas = gain/increase  
+- Gray/white = no change
+${changeDetection ? `
+Change Statistics:
+- Total changed: ${changeDetection.total_changed_area_km2} km²
+- ${changeDetection.change_percent}% of study area changed
+Major transitions: ${changeDetection.major_changes?.map((c: any) => c.type).join(', ')}` : `Change: ${Math.abs(changePercent)}%`}
+Include change legend, timeline indicator (${landsatInfo?.acquisition_dates?.join(' → ') || 'Before → After'}).
+Professional change detection map, 16:9 aspect ratio.`;
+        break;
+
+      case "classification_map":
+        prompt = `Create a land cover classification map of ${region}, Africa derived from Landsat multispectral analysis.
+${classificationResults ? `
+CLASSIFICATION METHOD: ${classificationResults.method?.toUpperCase()}
+CLASSES (${classificationResults.num_classes} total):
+${classificationResults.classes?.slice(0, 8).map((c: any) => `- ${c.name}: ${c.area_percent?.toFixed(1)}%`).join('\n')}
+ACCURACY: ${classificationResults.accuracy_metrics?.overall_accuracy?.toFixed(1)}% (Kappa: ${classificationResults.accuracy_metrics?.kappa_coefficient?.toFixed(2)})
+` : `
+Standard land cover classes:
+- Water (Blue): Rivers, lakes, reservoirs
+- Forest (Dark Green): Dense tree cover
+- Agriculture (Light Green): Cropland, farms
+- Grassland (Yellow-Green): Pastures, savannas
+- Urban (Gray/Pink): Built-up areas
+- Bare Soil (Brown): Exposed earth, deserts
+`}
+Use distinct, professional colors for each class.
+Include legend with class names, areas, and percentages.
+30m Landsat resolution, classified thematic map style, 16:9 aspect ratio.`;
+        break;
+
+      case "change_detection_map":
+        prompt = `Create a post-classification change detection map for ${region}, Africa.
+FROM-TO CHANGE MATRIX VISUALIZATION:
+${changeDetection?.change_matrix ? `
+Major Transitions:
+${changeDetection.change_matrix.slice(0, 6).map((c: any) => `- ${c.from_class} → ${c.to_class}: ${c.area_km2?.toFixed(1)} km² (${c.percent?.toFixed(1)}%)`).join('\n')}
+` : `
+Show typical environmental changes:
+- Forest → Agriculture (Green → Yellow)
+- Agriculture → Urban (Yellow → Gray)
+- Vegetation → Bare (Green → Brown)
+- Water → Land (Blue → Brown)
+`}
+${changeDetection?.change_hotspots ? `
+HOTSPOTS: ${changeDetection.change_hotspots.slice(0, 3).map((h: any) => h.location).join(', ')}` : ''}
+No-change areas in transparent overlay.
+Changed areas with distinct from-to color coding.
+Include transition legend, change statistics panel.
+Professional GIS change analysis map, 16:9 aspect ratio.`;
+        break;
+
+      // === ENHANCED SATELLITE VISUALIZATIONS ===
       case "satellite_2d":
-        prompt = `Create a hyper-realistic 2D satellite imagery view of ${region}, Africa showing ${eventType}. 
-Photorealistic Sentinel-2 style satellite image with true color composite (RGB bands). 
-Show affected areas with subtle color differences indicating ${Math.abs(changePercent)}% ${eventType} change.
+        prompt = `Create a hyper-realistic 2D Landsat satellite imagery view of ${region}, Africa showing ${eventType}. 
+Authentic Landsat 8/9 OLI true-color composite (Bands 4-3-2) at 30m resolution.
+Show affected areas with scientifically accurate color differences indicating ${Math.abs(changePercent)}% ${eventType} change.
 Include: Cloud-free imagery, sharp terrain features, visible infrastructure, river systems, vegetation patterns.
 ${severity === 'critical' ? 'Show dramatic visible damage/change in affected zones.' : ''}
-Professional cartographic quality with north arrow and scale bar. 
-Ultra high resolution, 16:9 aspect ratio, photorealistic satellite imagery style.`;
+${spectralIndices?.ndvi ? `Vegetation health (NDVI mean): ${spectralIndices.ndvi.mean?.toFixed(2)}` : ''}
+Professional cartographic quality with north arrow, scale bar, coordinate reference. 
+Ultra high resolution, 16:9 aspect ratio, photorealistic Landsat satellite imagery style.`;
         break;
         
       case "satellite_3d":
-        prompt = `Create a stunning 3D terrain visualization of ${region}, Africa showing ${eventType} impacts.
-Oblique 3D perspective view with realistic terrain elevation from SRTM DEM data.
+        prompt = `Create a stunning 3D terrain visualization of ${region}, Africa using Landsat imagery draped over SRTM DEM.
+Oblique 3D perspective view with realistic terrain elevation (30m SRTM).
+Landsat true-color or false-color composite draped on topography.
 Show topographic features: mountains, valleys, river basins, coastlines with dramatic shadows.
-Overlay ${eventType} impact data as semi-transparent color gradation (green-yellow-red intensity).
+Overlay ${eventType} impact data as semi-transparent color gradation.
 ${changePercent > 20 ? 'Highlight critical change areas with glowing boundaries.' : ''}
+${classificationResults ? `Show ${classificationResults.num_classes}-class land cover overlay.` : ''}
 Include: 3D vegetation representation, atmospheric haze for depth, realistic lighting.
 Professional 3D GIS visualization style, ultra high resolution, 16:9 aspect ratio.`;
         break;
         
       case "satellite_4d":
-        prompt = `Create a temporal 4D visualization showing ${eventType} change over time in ${region}, Africa.
-Split-panel or animated sequence style showing BEFORE and AFTER satellite imagery.
-Left panel: "2022" with original conditions - lush vegetation/normal state.
-Right panel: "2024" with ${Math.abs(changePercent)}% ${eventType} change visible.
-Include dramatic visual difference highlighting environmental transformation.
+        prompt = `Create a temporal 4D visualization showing ${eventType} change over time in ${region}, Africa using Landsat time series.
+Split-panel or animated sequence style showing BEFORE and AFTER Landsat imagery.
+Left panel: Start date imagery with original conditions.
+Right panel: End date imagery with ${Math.abs(changePercent)}% ${eventType} change visible.
+${changeDetection ? `
+Total changed area: ${changeDetection.total_changed_area_km2} km²
+Major changes: ${changeDetection.major_changes?.slice(0, 2).map((c: any) => c.type).join(', ')}` : ''}
 Add temporal annotations, timeline indicator, and change detection overlay.
-${predictiveData ? `Show projected future state for 2025 with ${predictiveData.projected_change_12mo}% additional change.` : ''}
-Professional time-series analysis style, photorealistic, 16:9 aspect ratio.`;
+${predictiveData ? `Show projected future state with ${predictiveData.projected_change_12mo}% additional change.` : ''}
+Professional Landsat time-series analysis style, photorealistic, 16:9 aspect ratio.`;
         break;
         
       case "predictive":
-        prompt = `Create a predictive modeling visualization for ${eventType} in ${region}, Africa.
+        prompt = `Create a predictive modeling visualization for ${eventType} in ${region}, Africa based on Landsat trend analysis.
 Show projected environmental changes over the next 12 months.
 Include: Current state indicator, trend arrows, confidence bands, projection zones.
 Use gradient colors from current (blue) through projected (orange/red for decline, green for improvement).
-${predictiveData ? `Trend: ${predictiveData.trend_direction}, 6-month projection: ${predictiveData.projected_change_6mo}%, 12-month projection: ${predictiveData.projected_change_12mo}%` : ''}
+${predictiveData ? `
+Trend: ${predictiveData.trend_direction}
+6-month projection: ${predictiveData.projected_change_6mo}%
+12-month projection: ${predictiveData.projected_change_12mo}%
+Confidence: ${predictiveData.confidence}%
+Method: ${predictiveData.methodology}` : ''}
 Add predictive heat zones showing high-probability change areas.
 Professional scientific forecasting visualization, 16:9 aspect ratio.`;
         break;
         
       case "timeline":
-        prompt = `Create an animated timeline visualization showing ${eventType} progression in ${region}, Africa.
+        prompt = `Create an animated timeline visualization showing ${eventType} progression in ${region}, Africa using Landsat archive.
 Circular or linear timeline design showing yearly changes from 2020-2025.
-Each time point shows satellite snapshot with change percentage overlay.
+Each time point shows Landsat snapshot with change percentage overlay.
 Progressive color shift from green (healthy) through yellow to red (critical) based on degradation.
+${spectralIndices?.ndvi ? `Track NDVI trends: current mean ${spectralIndices.ndvi.mean?.toFixed(2)}` : ''}
 Include: Timeline markers, percentage annotations, trend line, key event callouts.
 Professional animated infographic style, 16:9 aspect ratio.`;
         break;
 
       case "map":
-        prompt = `Create a professional satellite map visualization showing ${eventType} in ${region}, Africa. 
-Photorealistic satellite basemap with affected areas highlighted in red/orange heat overlay.
-Include: Clean legend, scale bar, north arrow, coordinate grid.
-Topographic style with clear terrain features, river networks, urban areas marked.
+        prompt = `Create a professional Landsat satellite map visualization showing ${eventType} in ${region}, Africa. 
+Photorealistic Landsat 8/9 basemap with affected areas highlighted in heat overlay.
+Include: Clean legend, scale bar, north arrow, coordinate grid (WGS84).
+${landsatInfo ? `Data source: ${landsatInfo.sensor}, ${landsatInfo.spatial_resolution} resolution` : 'Landsat 8 OLI, 30m resolution'}
 Show ${Math.abs(changePercent)}% change with intensity-based coloring.
 Ultra high resolution, professional cartographic style, 16:9 aspect ratio.`;
         break;
@@ -148,6 +261,11 @@ Ultra high resolution, professional cartographic style, 16:9 aspect ratio.`;
       case "chart":
         prompt = `Create a professional data visualization chart showing ${eventType} trends over time for ${region}.
 Modern line graph with percentage change on Y-axis (-50% to +50%) and years 2020-2025 on X-axis.
+${spectralIndices ? `
+Include spectral index panel:
+- NDVI trend line (vegetation health)
+${spectralIndices.ndwi ? '- NDWI trend (water content)' : ''}
+${spectralIndices.nbr ? '- NBR trend (burn severity)' : ''}` : ''}
 Use gradient blue-to-red color scheme based on severity.
 Include: Clean gridlines, proper axis labels, data points with values, trend line, projection zone.
 Add confidence interval shading and annotation for key events.
@@ -157,35 +275,41 @@ Professional scientific chart style, 16:9 aspect ratio.`;
       case "heatmap":
         prompt = `Create a professional heatmap visualization showing intensity of ${eventType} across ${region}, Africa.
 Geographic heatmap with gradient: Dark green (low impact) → Yellow → Orange → Dark red (high impact).
+${classificationResults ? `Overlay on ${classificationResults.num_classes}-class land cover base map.` : 'Overlay on subtle Landsat basemap for geographic context.'}
 Include: Clear legend showing intensity scale (0-100%), geographic labels, regional boundaries.
-Overlay on subtle satellite basemap for geographic context.
-Show hotspots and clusters of ${eventType} activity.
+${changeDetection?.change_hotspots ? `Highlight hotspots: ${changeDetection.change_hotspots.slice(0, 3).map((h: any) => h.location).join(', ')}` : ''}
+Show clusters of ${eventType} activity.
 Scientific visualization style, 16:9 aspect ratio.`;
         break;
         
       case "comparison":
-        prompt = `Create a professional before/after satellite comparison for ${region} showing ${eventType}.
-Clean split-view: "BEFORE (2022)" on left, "AFTER (2024)" on right.
-Photorealistic satellite imagery style for both panels.
+        prompt = `Create a professional before/after Landsat satellite comparison for ${region} showing ${eventType}.
+Clean split-view with Landsat imagery: Start date on left, End date on right.
+Photorealistic Landsat imagery style for both panels.
 Highlight changed areas with subtle boundary outlines.
-Include: Date labels, change percentage overlay (${Math.abs(changePercent)}%), scale bar.
+${changeDetection ? `
+Total change: ${changeDetection.total_changed_area_km2} km² (${changeDetection.change_percent}%)` : `Change: ${Math.abs(changePercent)}%`}
+Include: Date labels, change percentage overlay, scale bar.
 ${severity === 'critical' ? 'Dramatic visible transformation between panels.' : 'Subtle but detectable differences.'}
 Professional remote sensing visualization, 16:9 aspect ratio.`;
         break;
         
       default:
         prompt = `Create a professional environmental analysis infographic for ${region} showing ${eventType}.
-Include: Satellite imagery section, key statistics (${Math.abs(changePercent)}% change), trend chart, recommendations.
+Based on Landsat multispectral satellite analysis.
+Include: Satellite imagery section, key statistics (${Math.abs(changePercent)}% change), spectral indices, trend chart, recommendations.
+${classificationResults ? `Land cover classification with ${classificationResults.num_classes} classes.` : ''}
+${changeDetection ? `Change detection showing ${changeDetection.total_changed_area_km2} km² changed.` : ''}
 Clean, modern design with data visualization elements.
 Professional scientific poster style, 16:9 aspect ratio.`;
     }
 
-    // Use higher quality model for satellite imagery
-    const model = ['satellite_2d', 'satellite_3d', 'satellite_4d', 'predictive'].includes(visualizationType)
+    // Use higher quality model for Landsat and satellite imagery
+    const highQualityTypes = ['satellite_2d', 'satellite_3d', 'satellite_4d', 'predictive', 'landsat_truecolor', 'landsat_falsecolor', 'landsat_ndvi', 'landsat_change', 'classification_map', 'change_detection_map'];
+    const model = highQualityTypes.includes(visualizationType)
       ? "google/gemini-3-pro-image-preview"
       : "google/gemini-2.5-flash-image-preview";
 
-    // Call Lovable AI image generation
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -194,12 +318,7 @@ Professional scientific poster style, 16:9 aspect ratio.`;
       },
       body: JSON.stringify({
         model,
-        messages: [
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
+        messages: [{ role: "user", content: prompt }],
         modalities: ["image", "text"]
       }),
     });
@@ -224,8 +343,6 @@ Professional scientific poster style, 16:9 aspect ratio.`;
     }
 
     const aiData = await response.json();
-    
-    // Extract image from response
     const message = aiData.choices?.[0]?.message;
     const images = message?.images || [];
     
@@ -248,9 +365,10 @@ Professional scientific poster style, 16:9 aspect ratio.`;
       JSON.stringify({ 
         success: true,
         imageUrl,
-        description: message?.content || "Visualization generated successfully",
+        description: message?.content || "Landsat visualization generated successfully",
         visualizationType,
-        model
+        model,
+        dataSource: "Landsat 8/9 OLI"
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

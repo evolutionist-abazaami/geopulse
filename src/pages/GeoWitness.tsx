@@ -11,6 +11,9 @@ import GISExportButton from "@/components/GISExportButton";
 import MultiEventSelector from "@/components/MultiEventSelector";
 import ShapefileImport from "@/components/ShapefileImport";
 import CloudCoverageDisplay from "@/components/CloudCoverageDisplay";
+import ClassificationControls, { ClassificationType } from "@/components/ClassificationControls";
+import ClassificationResults from "@/components/ClassificationResults";
+import SpectralIndicesDisplay from "@/components/SpectralIndicesDisplay";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -21,7 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Play, AlertTriangle, Loader2, MousePointer, Upload, ChevronDown, Star, GitCompare, Clock, Layers, FileType } from "lucide-react";
+import { Play, AlertTriangle, Loader2, MousePointer, Upload, ChevronDown, Star, GitCompare, Clock, Layers, FileType, Satellite } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AnalysisFeature } from "@/lib/gis-export";
@@ -108,6 +111,9 @@ const GeoWitness = () => {
   const [is3DEnabled, setIs3DEnabled] = useState(false);
   const [activeHeatmapLayer, setActiveHeatmapLayer] = useState<HeatmapLayerType>("none");
   const [importedFeatures, setImportedFeatures] = useState<AnalysisFeature[]>([]);
+  const [classificationType, setClassificationType] = useState<ClassificationType>(null);
+  const [enableChangeDetection, setEnableChangeDetection] = useState(false);
+  const [numClasses, setNumClasses] = useState(6);
 
   const handleLocationSelect = (location: { name: string; lat: number; lng: number; bounds?: [[number, number], [number, number]] }) => {
     setRegion(location.name);
@@ -178,6 +184,9 @@ const GeoWitness = () => {
             startDate,
             endDate,
             coordinates,
+            classificationType,
+            enableChangeDetection,
+            numClasses,
           }),
         }
       );
@@ -442,6 +451,16 @@ const GeoWitness = () => {
                   </div>
                 </div>
 
+                {/* Classification & Change Detection Controls */}
+                <ClassificationControls
+                  classificationType={classificationType}
+                  onClassificationTypeChange={setClassificationType}
+                  enableChangeDetection={enableChangeDetection}
+                  onChangeDetectionToggle={setEnableChangeDetection}
+                  numClasses={numClasses}
+                  onNumClassesChange={setNumClasses}
+                />
+
                 <Button 
                   className="w-full bg-gradient-ocean hover:opacity-90"
                   onClick={runAnalysis}
@@ -450,12 +469,12 @@ const GeoWitness = () => {
                   {isAnalyzing ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Analyzing...
+                      Analyzing with Landsat...
                     </>
                   ) : (
                     <>
-                      <Play className="h-4 w-4 mr-2" />
-                      Run AI Analysis
+                      <Satellite className="h-4 w-4 mr-2" />
+                      Run Landsat Analysis
                     </>
                   )}
                 </Button>
@@ -494,13 +513,41 @@ const GeoWitness = () => {
                   )}
                 </div>
 
+                {/* Landsat Sensor Info */}
+                {results.landsatInfo && (
+                  <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Satellite className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium">{results.landsatInfo.sensor || 'Landsat 8 OLI'}</span>
+                      <Badge variant="outline" className="text-xs">{results.landsatInfo.spatial_resolution || '30m'}</Badge>
+                    </div>
+                    {results.landsatInfo.acquisition_dates && (
+                      <p className="text-xs text-muted-foreground">
+                        Acquisition: {results.landsatInfo.acquisition_dates.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Cloud Coverage & Quality Display */}
                 <CloudCoverageDisplay
                   cloudCoverage={results.cloudCoverage?.percentage}
                   dataQuality={results.dataQuality?.overall_score}
                   analysisConfidence={results.analysisConfidence}
-                  sensorType={results.sensorInfo?.primary_sensor}
-                  acquisitionDate={results.sensorInfo?.acquisition_dates?.[0]}
+                  sensorType={results.landsatInfo?.sensor || results.sensorInfo?.primary_sensor}
+                  acquisitionDate={results.landsatInfo?.acquisition_dates?.[0] || results.sensorInfo?.acquisition_dates?.[0]}
+                />
+
+                {/* Spectral Indices Display */}
+                <SpectralIndicesDisplay
+                  spectralIndices={results.spectralIndices}
+                  landsatInfo={results.landsatInfo}
+                />
+
+                {/* Classification & Change Detection Results */}
+                <ClassificationResults
+                  classificationResults={results.classificationResults}
+                  changeDetection={results.changeDetection}
                 />
 
                 <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">

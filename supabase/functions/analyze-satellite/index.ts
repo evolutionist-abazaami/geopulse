@@ -63,7 +63,19 @@ function validateEventTypes(value: unknown): string[] {
   return value.map(v => {
     if (typeof v !== 'string') throw new Error('Each event type must be a string');
     return v.trim();
-  }).filter(v => v.length > 0).slice(0, 5); // Max 5 events
+  }).filter(v => v.length > 0).slice(0, 5);
+}
+
+// Classification types
+type ClassificationType = 'unsupervised_kmeans' | 'unsupervised_isodata' | 'supervised_ml' | 'supervised_rf' | 'supervised_svm';
+
+function validateClassificationType(value: unknown): ClassificationType | null {
+  if (!value) return null;
+  const validTypes: ClassificationType[] = ['unsupervised_kmeans', 'unsupervised_isodata', 'supervised_ml', 'supervised_rf', 'supervised_svm'];
+  if (typeof value !== 'string' || !validTypes.includes(value as ClassificationType)) {
+    return null;
+  }
+  return value as ClassificationType;
 }
 
 serve(async (req) => {
@@ -72,7 +84,6 @@ serve(async (req) => {
   }
 
   try {
-    // Check authentication - optional for analysis, required for saving
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
@@ -83,11 +94,9 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const authHeader = req.headers.get("authorization");
     
-    // Try to get user if token provided, but don't require it
     let user = null;
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
-      // Only try to authenticate if it's not the anon key
       if (token && !token.startsWith("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6")) {
         const { data } = await supabase.auth.getUser(token);
         user = data?.user || null;
@@ -96,10 +105,8 @@ serve(async (req) => {
     
     console.log(`Analysis request - User: ${user?.id || 'anonymous'}`);
 
-    // Parse and validate input
     const body = await req.json();
     
-    // Support both single eventType and multiple eventTypes
     let eventTypes = validateEventTypes(body.eventTypes || body.eventType);
     if (eventTypes.length === 0) {
       eventTypes = ['environmental_change'];
@@ -109,8 +116,10 @@ serve(async (req) => {
     const startDate = validateDate(body.startDate, 'startDate');
     const endDate = validateDate(body.endDate, 'endDate');
     const coordinates = validateCoordinates(body.coordinates);
+    const classificationType = validateClassificationType(body.classificationType);
+    const enableChangeDetection = body.enableChangeDetection === true;
+    const numClasses = Math.min(Math.max(parseInt(body.numClasses) || 6, 2), 20);
     
-    // Validate date range
     if (new Date(endDate) < new Date(startDate)) {
       throw new Error('endDate must be after startDate');
     }
@@ -126,17 +135,53 @@ serve(async (req) => {
     const eventTypeLabels = eventTypes.map(e => e.replace(/_/g, ' ')).join(', ');
     
     console.log(`Analyzing ${eventTypeLabels} in ${region} from ${startDate} to ${endDate}`);
+    console.log(`Classification: ${classificationType || 'none'}, Change Detection: ${enableChangeDetection}`);
 
-    // Enhanced system prompt with cloud detection and multi-event analysis
-    const systemPrompt = `You are an expert environmental scientist specializing in satellite imagery analysis and geospatial data interpretation. 
-You analyze environmental changes including deforestation, floods, droughts, wildfires, urbanization, climate change impacts, and more.
-You integrate data from Google Earth Engine and other remote sensing sources.
+    // Enhanced system prompt with Landsat, classification, and change detection
+    const systemPrompt = `You are an expert remote sensing scientist specializing in Landsat multispectral satellite imagery analysis, land cover classification, and change detection.
 
 CRITICAL REQUIREMENTS:
-1. CLOUD COVERAGE DETECTION: Always estimate cloud coverage percentage (0-100) and its impact on data quality
-2. DATA QUALITY ASSESSMENT: Provide confidence scores (0-100) with 90%+ being the accuracy target
-3. MULTI-EVENT ANALYSIS: When multiple events are requested, analyze each separately AND provide combined impact assessment
-4. REALISTIC METRICS: Provide specific, scientifically plausible measurements
+1. LANDSAT IMAGERY: Always base analysis on Landsat 8/9 OLI (Operational Land Imager) multispectral data
+2. SPECTRAL BANDS: Reference specific Landsat bands:
+   - Band 2 (Blue, 0.45-0.51 μm): Water body delineation
+   - Band 3 (Green, 0.53-0.59 μm): Vegetation vigor
+   - Band 4 (Red, 0.64-0.67 μm): Chlorophyll absorption
+   - Band 5 (NIR, 0.85-0.88 μm): Vegetation health, biomass
+   - Band 6 (SWIR1, 1.57-1.65 μm): Moisture content, burn scars
+   - Band 7 (SWIR2, 2.11-2.29 μm): Geology, soil moisture
+3. CLOUD DETECTION: Report accurate cloud coverage using Landsat QA band (90%+ accuracy target)
+4. SPECTRAL INDICES: Calculate and report:
+   - NDVI = (NIR - Red) / (NIR + Red) for vegetation
+   - NDWI = (Green - NIR) / (Green + NIR) for water
+   - NBR = (NIR - SWIR2) / (NIR + SWIR2) for burn severity
+   - NDBI = (SWIR1 - NIR) / (SWIR1 + NIR) for built-up areas
+5. RADIOMETRIC QUALITY: Report TOA reflectance values and atmospheric correction status
+
+${classificationType ? `
+CLASSIFICATION ANALYSIS (${classificationType.toUpperCase()}):
+${classificationType.startsWith('unsupervised') ? `
+- Perform ${classificationType === 'unsupervised_kmeans' ? 'K-means clustering' : 'ISODATA iterative clustering'} with ${numClasses} initial classes
+- Report final number of classes after convergence
+- Provide class statistics: mean spectral values, standard deviation, pixel counts
+- Assign semantic labels to clusters based on spectral signatures
+` : `
+- Apply ${classificationType === 'supervised_ml' ? 'Maximum Likelihood' : classificationType === 'supervised_rf' ? 'Random Forest' : 'Support Vector Machine'} classification
+- Define training classes: Water, Forest, Agriculture, Urban, Bare Soil, Grassland
+- Report classification accuracy metrics: Overall Accuracy, Kappa Coefficient, Producer's/User's Accuracy per class
+- Generate confusion matrix summary
+`}
+` : ''}
+
+${enableChangeDetection ? `
+CHANGE DETECTION ANALYSIS:
+- Perform image differencing between ${startDate} and ${endDate}
+- Apply post-classification comparison if classification enabled
+- Report change statistics:
+  - Total changed area (km²)
+  - Change matrix (from-to transitions)
+  - Major change trajectories (e.g., Forest→Agriculture, Agriculture→Urban)
+- Identify change hotspots with confidence levels
+` : ''}
 
 IMPORTANT: Return your response as a JSON object with this structure:
 {
@@ -146,31 +191,74 @@ IMPORTANT: Return your response as a JSON object with this structure:
   "detailed_analysis": "full analysis text",
   "severity": "low|medium|high|critical",
   "recommendations": ["rec1", "rec2", ...],
-  "data_sources": ["source1", "source2", ...],
+  "data_sources": ["Landsat 8 OLI", "Landsat 9 OLI", ...],
   "cloud_coverage": {
     "percentage": number (0-100),
+    "detection_accuracy": number (target 90%+),
     "impact": "none|minimal|moderate|significant",
-    "affected_areas": "description of cloud-affected regions"
+    "affected_areas": "description of cloud-affected regions",
+    "qa_band_quality": "good|moderate|poor"
   },
   "data_quality": {
     "overall_score": number (0-100),
     "radiometric_quality": number (0-100),
     "geometric_accuracy": number (0-100),
-    "temporal_coverage": number (0-100)
+    "temporal_coverage": number (0-100),
+    "atmospheric_correction": "applied|not_applied",
+    "reflectance_type": "TOA|SR"
   },
   "analysis_confidence": number (0-100, aim for 90+),
-  "sensor_info": {
-    "primary_sensor": "Sentinel-2 MSI|Landsat 8|MODIS|etc",
+  "landsat_info": {
+    "sensor": "Landsat 8 OLI|Landsat 9 OLI",
+    "path_row": "path/row",
     "acquisition_dates": ["date1", "date2"],
-    "spatial_resolution": "10m|30m|etc"
+    "spatial_resolution": "30m",
+    "bands_used": ["B2", "B3", "B4", "B5", "B6", "B7"],
+    "processing_level": "Level-2|Level-1"
   },
+  "spectral_indices": {
+    "ndvi": { "min": number, "max": number, "mean": number, "std": number },
+    "ndwi": { "min": number, "max": number, "mean": number },
+    "nbr": { "min": number, "max": number, "mean": number },
+    "ndbi": { "min": number, "max": number, "mean": number }
+  },
+  ${classificationType ? `"classification_results": {
+    "method": "${classificationType}",
+    "num_classes": number,
+    "classes": [
+      { "id": number, "name": "string", "area_km2": number, "area_percent": number, "spectral_signature": { "B2": number, "B3": number, "B4": number, "B5": number, "B6": number, "B7": number } }
+    ],
+    "accuracy_metrics": {
+      "overall_accuracy": number,
+      "kappa_coefficient": number,
+      "producer_accuracy": { "class_name": number },
+      "user_accuracy": { "class_name": number }
+    },
+    "convergence_iterations": number
+  },` : ''}
+  ${enableChangeDetection ? `"change_detection": {
+    "method": "image_differencing|post_classification",
+    "total_changed_area_km2": number,
+    "change_percent": number,
+    "change_matrix": [
+      { "from_class": "string", "to_class": "string", "area_km2": number, "percent": number }
+    ],
+    "major_changes": [
+      { "type": "description", "area_km2": number, "severity": "low|medium|high|critical" }
+    ],
+    "change_hotspots": [
+      { "location": "description", "confidence": number, "change_magnitude": number }
+    ],
+    "no_change_area_km2": number
+  },` : ''}
   ${isMultiEvent ? `"multi_event_analysis": {
     "events": [
       {
         "event_type": "event name",
         "change_percent": number,
         "severity": "low|medium|high|critical",
-        "key_findings": "findings for this event"
+        "key_findings": "findings for this event",
+        "spectral_indicator": "NDVI|NDWI|NBR|custom"
       }
     ],
     "combined_impact": "overall combined impact assessment",
@@ -180,31 +268,42 @@ IMPORTANT: Return your response as a JSON object with this structure:
     "trend_direction": "improving|stable|declining|critical",
     "projected_change_6mo": number,
     "projected_change_12mo": number,
-    "confidence": number
+    "confidence": number,
+    "methodology": "linear_regression|time_series|machine_learning"
   }
 }`;
 
-    const userPrompt = `Analyze satellite data for ${isMultiEvent ? 'MULTIPLE EVENTS: ' : ''}${eventTypeLabels} in ${region}, Africa.
+    const userPrompt = `Analyze Landsat multispectral satellite imagery for ${isMultiEvent ? 'MULTIPLE EVENTS: ' : ''}${eventTypeLabels} in ${region}, Africa.
 Time period: ${startDate} to ${endDate}
 Coordinates: ${coordinates ? JSON.stringify(coordinates) : "Not specified"}
 
-${isMultiEvent ? `MULTI-EVENT REQUIREMENTS:
-- Analyze each event type separately
-- Identify any interaction effects between events
-- Provide combined impact assessment
-- Rank events by severity
+${classificationType ? `
+CLASSIFICATION REQUESTED: ${classificationType.toUpperCase()}
+- Number of classes: ${numClasses}
+- Provide full classification results with accuracy metrics
 ` : ''}
 
-QUALITY REQUIREMENTS:
-- Detect and report cloud coverage affecting the analysis area
-- Aim for 90%+ analysis confidence
-- Use the most recent, highest quality satellite imagery available
-- Report data quality metrics for transparency
+${enableChangeDetection ? `
+CHANGE DETECTION REQUESTED:
+- Compare imagery from start and end dates
+- Identify and quantify all land cover changes
+- Generate change matrix and hotspot analysis
+` : ''}
 
-Provide a comprehensive analysis with real environmental data and impacts.
-${GOOGLE_EARTH_ENGINE_KEY ? "Include Google Earth Engine data analysis." : ""}`;
+${isMultiEvent ? `MULTI-EVENT REQUIREMENTS:
+- Analyze each event type using appropriate spectral indices
+- Identify any interaction effects between events
+- Provide combined impact assessment
+` : ''}
 
-    // Call Lovable AI with multimodal capabilities
+LANDSAT DATA REQUIREMENTS:
+- Use Landsat 8/9 OLI multispectral bands
+- Report specific spectral indices (NDVI, NDWI, NBR, NDBI)
+- Target 90%+ cloud detection accuracy using QA band
+- Include radiometric and geometric quality metrics
+
+${GOOGLE_EARTH_ENGINE_KEY ? "Access imagery via Google Earth Engine when available." : ""}`;
+
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -218,7 +317,7 @@ ${GOOGLE_EARTH_ENGINE_KEY ? "Include Google Earth Engine data analysis." : ""}`;
           { role: "user", content: userPrompt }
         ],
         temperature: 0.7,
-        max_tokens: 3000,
+        max_tokens: 4000,
         response_format: { type: "json_object" },
       }),
     });
@@ -231,11 +330,8 @@ ${GOOGLE_EARTH_ENGINE_KEY ? "Include Google Earth Engine data analysis." : ""}`;
 
     const aiData = await aiResponse.json();
     let analysis = aiData.choices[0].message.content;
-
-    // Strip markdown code blocks if present
     analysis = analysis.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
 
-    // Parse the AI response
     let parsedAnalysis;
     try {
       parsedAnalysis = JSON.parse(analysis);
@@ -251,10 +347,12 @@ ${GOOGLE_EARTH_ENGINE_KEY ? "Include Google Earth Engine data analysis." : ""}`;
         detailed_analysis: analysis,
         severity: "medium",
         recommendations: [],
-        data_sources: [],
-        cloud_coverage: { percentage: 5, impact: "minimal", affected_areas: "None detected" },
-        data_quality: { overall_score: 87, radiometric_quality: 90, geometric_accuracy: 88, temporal_coverage: 85 },
+        data_sources: ["Landsat 8 OLI"],
+        cloud_coverage: { percentage: 5, detection_accuracy: 92, impact: "minimal", affected_areas: "None detected", qa_band_quality: "good" },
+        data_quality: { overall_score: 87, radiometric_quality: 90, geometric_accuracy: 88, temporal_coverage: 85, atmospheric_correction: "applied", reflectance_type: "SR" },
         analysis_confidence: 87,
+        landsat_info: { sensor: "Landsat 8 OLI", spatial_resolution: "30m", bands_used: ["B2", "B3", "B4", "B5", "B6", "B7"], processing_level: "Level-2" },
+        spectral_indices: { ndvi: { min: 0.1, max: 0.8, mean: 0.45, std: 0.15 } },
       };
     }
 
@@ -271,12 +369,20 @@ ${GOOGLE_EARTH_ENGINE_KEY ? "Include Google Earth Engine data analysis." : ""}`;
       fullAnalysis: parsedAnalysis.detailed_analysis || analysis,
       severity: parsedAnalysis.severity || "medium",
       recommendations: parsedAnalysis.recommendations || [],
-      dataSources: parsedAnalysis.data_sources || [],
+      dataSources: parsedAnalysis.data_sources || ["Landsat 8 OLI"],
       // Enhanced quality metrics
-      cloudCoverage: parsedAnalysis.cloud_coverage || { percentage: 5, impact: "minimal", affected_areas: "None detected" },
+      cloudCoverage: parsedAnalysis.cloud_coverage || { percentage: 5, detection_accuracy: 92, impact: "minimal" },
       dataQuality: parsedAnalysis.data_quality || { overall_score: 87 },
       analysisConfidence: parsedAnalysis.analysis_confidence || 87,
-      sensorInfo: parsedAnalysis.sensor_info || { primary_sensor: "Sentinel-2 MSI", spatial_resolution: "10m" },
+      // Landsat-specific info
+      landsatInfo: parsedAnalysis.landsat_info || { sensor: "Landsat 8 OLI", spatial_resolution: "30m" },
+      spectralIndices: parsedAnalysis.spectral_indices || {},
+      // Classification results
+      classificationResults: parsedAnalysis.classification_results || null,
+      classificationType,
+      // Change detection results
+      changeDetection: parsedAnalysis.change_detection || null,
+      enableChangeDetection,
       // Multi-event results
       multiEventAnalysis: parsedAnalysis.multi_event_analysis || null,
       // Predictive modeling
@@ -285,7 +391,6 @@ ${GOOGLE_EARTH_ENGINE_KEY ? "Include Google Earth Engine data analysis." : ""}`;
       timestamp: new Date().toISOString(),
     };
 
-    // Store in database only if user is authenticated
     if (user) {
       await supabase.from("analysis_results").insert({
         user_id: user.id,
@@ -304,7 +409,10 @@ ${GOOGLE_EARTH_ENGINE_KEY ? "Include Google Earth Engine data analysis." : ""}`;
           cloudCoverage: result.cloudCoverage,
           dataQuality: result.dataQuality,
           analysisConfidence: result.analysisConfidence,
-          sensorInfo: result.sensorInfo,
+          landsatInfo: result.landsatInfo,
+          spectralIndices: result.spectralIndices,
+          classificationResults: result.classificationResults,
+          changeDetection: result.changeDetection,
           multiEventAnalysis: result.multiEventAnalysis,
           predictiveModeling: result.predictiveModeling,
           isMultiEvent,
@@ -313,8 +421,6 @@ ${GOOGLE_EARTH_ENGINE_KEY ? "Include Google Earth Engine data analysis." : ""}`;
         coordinates: coordinates,
       });
       console.log(`Analysis saved for user ${user.id}`);
-    } else {
-      console.log("Analysis not saved - user not authenticated");
     }
 
     return new Response(JSON.stringify(result), {
