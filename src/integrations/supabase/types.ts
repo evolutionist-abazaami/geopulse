@@ -137,6 +137,45 @@ export type Database = {
         }
         Relationships: []
       }
+      demo_recordings: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_seconds: number
+          file_path: string
+          file_size: number
+          id: string
+          is_public: boolean
+          share_id: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_seconds: number
+          file_path: string
+          file_size: number
+          id?: string
+          is_public?: boolean
+          share_id?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_seconds?: number
+          file_path?: string
+          file_size?: number
+          id?: string
+          is_public?: boolean
+          share_id?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       saved_locations: {
         Row: {
           created_at: string
