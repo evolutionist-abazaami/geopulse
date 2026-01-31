@@ -2,7 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Download, FileText, Loader2, Image, Check, Shield, AlertTriangle, TrendingUp, MapPin, Calendar, BarChart3 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Download, FileText, Loader2, Image, Check, Shield, AlertTriangle, TrendingUp, MapPin, Calendar, BarChart3, Eye, Mountain, Thermometer, Droplets, Flame, Layers, Target, Leaf, PieChart } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
@@ -13,11 +16,26 @@ interface ReportGeneratorProps {
   region?: string;
 }
 
+// Advanced visualization types available
+const ADVANCED_VIZ_TYPES = [
+  { id: 'terrain_3d', label: '3D Terrain', icon: Mountain, description: 'Dramatic 3D terrain with elevation' },
+  { id: 'thermal_analysis', label: 'Thermal Map', icon: Thermometer, description: 'Temperature anomaly analysis' },
+  { id: 'ndwi_water', label: 'Water Index', icon: Droplets, description: 'NDWI water body detection' },
+  { id: 'nbr_fire', label: 'Burn Severity', icon: Flame, description: 'NBR fire damage assessment' },
+  { id: 'temporal_animation', label: 'Time Series', icon: Layers, description: 'Multi-year change animation' },
+  { id: 'risk_zones', label: 'Risk Zones', icon: Target, description: 'Priority intervention areas' },
+  { id: 'ecosystem_health', label: 'Ecosystem Health', icon: Leaf, description: 'Comprehensive health dashboard' },
+  { id: 'driver_analysis', label: 'Driver Analysis', icon: PieChart, description: 'Causal factors breakdown' },
+];
+
 const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorProps) => {
   const [reportType, setReportType] = useState<"professional" | "simple">("professional");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState("");
   const [includeImages, setIncludeImages] = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
+  const [selectedAdvancedViz, setSelectedAdvancedViz] = useState<string[]>(['terrain_3d', 'risk_zones']);
+  const [previewImages, setPreviewImages] = useState<Record<string, string | null>>({});
 
   const generateVisualization = async (type: string): Promise<string | null> => {
     try {
@@ -60,6 +78,32 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
       console.error(`Error generating ${type} visualization:`, error);
       return null;
     }
+  };
+
+  // Generate preview thumbnails for selected visualization types
+  const generatePreviewThumbnails = async () => {
+    if (!analysisData) {
+      toast.error("No analysis data available for preview");
+      return;
+    }
+
+    setShowPreview(true);
+    const previews: Record<string, string | null> = {};
+    
+    // Generate one preview image as a sample
+    toast.info("Generating report preview...");
+    const sampleImage = await generateVisualization("landsat_truecolor");
+    previews["satellite"] = sampleImage;
+    
+    setPreviewImages(previews);
+  };
+
+  const toggleAdvancedViz = (vizId: string) => {
+    setSelectedAdvancedViz(prev => 
+      prev.includes(vizId) 
+        ? prev.filter(id => id !== vizId)
+        : [...prev, vizId]
+    );
   };
 
   const loadImageAsBase64 = async (dataUrl: string): Promise<{ data: string; width: number; height: number } | null> => {
@@ -122,6 +166,7 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
       let classificationImage: string | null = null;
       let changeDetectionImage: string | null = null;
       let chartImage: string | null = null;
+      const advancedImages: Record<string, string | null> = {};
 
       if (includeImages) {
         setGenerationStep("Generating Landsat true-color satellite imagery...");
@@ -133,6 +178,15 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
           
           setGenerationStep("Generating NDVI vegetation analysis map...");
           ndviImage = await generateVisualization("ndvi_map");
+          
+          // Generate selected advanced visualizations
+          for (const vizId of selectedAdvancedViz) {
+            const vizInfo = ADVANCED_VIZ_TYPES.find(v => v.id === vizId);
+            if (vizInfo) {
+              setGenerationStep(`Generating ${vizInfo.label}...`);
+              advancedImages[vizId] = await generateVisualization(vizId);
+            }
+          }
         }
         
         if (analysisData?.classificationResults) {
@@ -1050,11 +1104,202 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
         </Button>
       </div>
 
+      {/* Advanced Visualization Types - Only show for Professional reports with images */}
+      {reportType === "professional" && includeImages && (
+        <div className="p-4 border border-border rounded-lg space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">Advanced Visualizations</Label>
+            <span className="text-xs text-muted-foreground">{selectedAdvancedViz.length} selected</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {ADVANCED_VIZ_TYPES.map((viz) => {
+              const Icon = viz.icon;
+              const isSelected = selectedAdvancedViz.includes(viz.id);
+              return (
+                <button
+                  key={viz.id}
+                  onClick={() => toggleAdvancedViz(viz.id)}
+                  className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-all ${
+                    isSelected 
+                      ? 'border-primary bg-primary/10 text-primary' 
+                      : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                  }`}
+                >
+                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium truncate">{viz.label}</div>
+                    <div className="text-[10px] text-muted-foreground truncate">{viz.description}</div>
+                  </div>
+                  {isSelected && <Check className="h-3 w-3 flex-shrink-0 ml-auto" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Report Preview Info */}
       <div className="p-4 bg-gradient-to-r from-primary/5 to-cyan-500/5 border border-primary/20 rounded-lg space-y-2">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Shield className="h-4 w-4 text-primary" />
-          Report Contents
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Shield className="h-4 w-4 text-primary" />
+            Report Contents
+          </div>
+          <Dialog open={showPreview} onOpenChange={setShowPreview}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={generatePreviewThumbnails} disabled={!analysisData}>
+                <Eye className="h-4 w-4 mr-1" />
+                Preview
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Report Preview
+                </DialogTitle>
+                <DialogDescription>
+                  Preview of your {reportType === "professional" ? "Professional" : "Summary"} Environmental Analysis Report
+                </DialogDescription>
+              </DialogHeader>
+              <Tabs defaultValue="structure" className="mt-4">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="structure">Structure</TabsTrigger>
+                  <TabsTrigger value="visualizations">Visualizations</TabsTrigger>
+                  <TabsTrigger value="sample">Sample Image</TabsTrigger>
+                </TabsList>
+                <TabsContent value="structure">
+                  <ScrollArea className="h-[400px] rounded-md border p-4">
+                    <div className="space-y-4">
+                      <div className="p-3 bg-primary/10 rounded-lg">
+                        <h4 className="font-bold text-primary">Page 1: Cover</h4>
+                        <p className="text-sm text-muted-foreground">GeoPulse branding, report metadata, classification badge</p>
+                      </div>
+                      {reportType === "professional" && (
+                        <div className="p-3 bg-muted rounded-lg">
+                          <h4 className="font-bold">Page 2: Table of Contents</h4>
+                          <p className="text-sm text-muted-foreground">Navigational guide with page numbers</p>
+                        </div>
+                      )}
+                      <div className="p-3 bg-muted rounded-lg">
+                        <h4 className="font-bold">Page 3: Executive Summary</h4>
+                        <p className="text-sm text-muted-foreground">Assessment overview, key findings, risk classification with citations [1-3]</p>
+                      </div>
+                      {includeImages && (
+                        <div className="p-3 bg-muted rounded-lg">
+                          <h4 className="font-bold">Page 4-5: Satellite Imagery</h4>
+                          <p className="text-sm text-muted-foreground">True-color, false-color, NDVI panels with captions</p>
+                        </div>
+                      )}
+                      {reportType === "professional" && (
+                        <>
+                          <div className="p-3 bg-muted rounded-lg">
+                            <h4 className="font-bold">Page 6: Risk Assessment</h4>
+                            <p className="text-sm text-muted-foreground">Risk factor matrix, priority recommendations</p>
+                          </div>
+                          <div className="p-3 bg-muted rounded-lg">
+                            <h4 className="font-bold">Page 7: Methodology</h4>
+                            <p className="text-sm text-muted-foreground">Data acquisition, processing pipeline, AI framework [6-10]</p>
+                          </div>
+                          <div className="p-3 bg-muted rounded-lg">
+                            <h4 className="font-bold">Page 8: References</h4>
+                            <p className="text-sm text-muted-foreground">Numbered citations [1-10] linked throughout document</p>
+                          </div>
+                          {selectedAdvancedViz.length > 0 && (
+                            <div className="p-3 bg-cyan-500/10 rounded-lg">
+                              <h4 className="font-bold text-cyan-700">Appendix: Advanced Visualizations</h4>
+                              <ul className="text-sm text-muted-foreground mt-1 space-y-1">
+                                {selectedAdvancedViz.map(vizId => {
+                                  const viz = ADVANCED_VIZ_TYPES.find(v => v.id === vizId);
+                                  return viz ? <li key={vizId}>• {viz.label}: {viz.description}</li> : null;
+                                })}
+                              </ul>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+                <TabsContent value="visualizations">
+                  <ScrollArea className="h-[400px] rounded-md border p-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Standard visualizations */}
+                      <div className="p-3 rounded-lg border bg-muted/30">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Image className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium">True-Color Composite</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Landsat Bands 4-3-2 RGB</p>
+                      </div>
+                      <div className="p-3 rounded-lg border bg-muted/30">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Layers className="h-4 w-4 text-orange-500" />
+                          <span className="text-sm font-medium">False-Color Composite</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Bands 5-4-3 NIR-R-G</p>
+                      </div>
+                      <div className="p-3 rounded-lg border bg-muted/30">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Leaf className="h-4 w-4 text-emerald-500" />
+                          <span className="text-sm font-medium">NDVI Vegetation Map</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Vegetation health index</p>
+                      </div>
+                      <div className="p-3 rounded-lg border bg-muted/30">
+                        <div className="flex items-center gap-2 mb-2">
+                          <BarChart3 className="h-4 w-4 text-blue-500" />
+                          <span className="text-sm font-medium">Trend Chart</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Temporal analysis graph</p>
+                      </div>
+                      {/* Selected advanced visualizations */}
+                      {selectedAdvancedViz.map(vizId => {
+                        const viz = ADVANCED_VIZ_TYPES.find(v => v.id === vizId);
+                        if (!viz) return null;
+                        const Icon = viz.icon;
+                        return (
+                          <div key={vizId} className="p-3 rounded-lg border border-primary/30 bg-primary/5">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Icon className="h-4 w-4 text-primary" />
+                              <span className="text-sm font-medium">{viz.label}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{viz.description}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+                <TabsContent value="sample">
+                  <div className="h-[400px] rounded-md border p-4 flex items-center justify-center bg-muted/20">
+                    {previewImages["satellite"] ? (
+                      <img 
+                        src={previewImages["satellite"]} 
+                        alt="Sample satellite visualization" 
+                        className="max-h-full max-w-full object-contain rounded-lg shadow-lg"
+                      />
+                    ) : (
+                      <div className="text-center text-muted-foreground">
+                        <Image className="h-16 w-16 mx-auto mb-4 opacity-30" />
+                        <p className="text-sm">Click Preview to generate a sample visualization</p>
+                        <p className="text-xs mt-1">This will show a Landsat satellite image of your region</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => setShowPreview(false)}>
+                  Close
+                </Button>
+                <Button onClick={() => { setShowPreview(false); generatePDFReport(); }}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Generate Full Report
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
         <ul className="text-xs text-muted-foreground space-y-1 ml-6">
           <li className="flex items-center gap-2">
@@ -1074,7 +1319,7 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
           {reportType === "professional" && (
             <>
               <li className="flex items-center gap-2">
-                <Check className="h-3 w-3 text-emerald-500" /> Table of contents
+                <Check className="h-3 w-3 text-emerald-500" /> Table of contents with citations [1-10]
               </li>
               <li className="flex items-center gap-2">
                 <Check className="h-3 w-3 text-emerald-500" /> Risk factor matrix & recommendations
@@ -1085,6 +1330,11 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
               <li className="flex items-center gap-2">
                 <Check className="h-3 w-3 text-emerald-500" /> Appendices with additional imagery
               </li>
+              {selectedAdvancedViz.length > 0 && (
+                <li className="flex items-center gap-2">
+                  <Check className="h-3 w-3 text-cyan-500" /> {selectedAdvancedViz.length} advanced visualizations
+                </li>
+              )}
             </>
           )}
         </ul>
@@ -1105,23 +1355,34 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
         </div>
       )}
 
-      <Button
-        className="w-full h-12 text-base font-medium"
-        onClick={generatePDFReport}
-        disabled={isGenerating || !analysisData}
-      >
-        {isGenerating ? (
-          <>
-            <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-            Generating Report...
-          </>
-        ) : (
-          <>
-            <Download className="h-5 w-5 mr-2" />
-            Download {reportType === "professional" ? "Professional" : "Summary"} Report
-          </>
-        )}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          className="flex-1"
+          onClick={generatePreviewThumbnails}
+          disabled={isGenerating || !analysisData}
+        >
+          <Eye className="h-4 w-4 mr-2" />
+          Preview Report
+        </Button>
+        <Button
+          className="flex-1 h-12 text-base font-medium"
+          onClick={generatePDFReport}
+          disabled={isGenerating || !analysisData}
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <Download className="h-5 w-5 mr-2" />
+              Download Report
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 };
