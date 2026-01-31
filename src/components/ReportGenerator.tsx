@@ -23,6 +23,8 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
+      console.log(`Starting visualization generation for: ${type}`);
+      
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-visualization`,
         {
@@ -41,12 +43,19 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
       );
 
       if (!response.ok) {
-        console.warn(`Visualization generation failed for ${type}`);
+        console.warn(`Visualization generation failed for ${type}: ${response.status}`);
         return null;
       }
 
       const data = await response.json();
-      return data.imageUrl || null;
+      console.log(`Visualization response for ${type}:`, data.imageUrl ? 'Image received' : 'No image', data.description?.substring(0, 100));
+      
+      if (data.imageUrl) {
+        return data.imageUrl;
+      }
+      
+      console.warn(`No image URL returned for ${type}`);
+      return null;
     } catch (error) {
       console.error(`Error generating ${type} visualization:`, error);
       return null;
@@ -523,7 +532,8 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
       yPos += 35;
 
       // ============= SATELLITE IMAGERY SECTION =============
-      if (trueColorImage) {
+      // Always show imagery section in professional reports
+      if (!isSimple) {
         pdf.addPage();
         addPageHeader();
         yPos = 28;
@@ -538,61 +548,100 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
         yPos += 10;
 
         // Main satellite image
-        try {
-          pdf.setFillColor(243, 244, 246);
-          pdf.roundedRect(margin, yPos, contentWidth, 75, 3, 3, "F");
-          
-          const imgWidth = contentWidth - 10;
-          const imgHeight = 65;
-          pdf.addImage(trueColorImage, "PNG", margin + 5, yPos + 5, imgWidth, imgHeight);
-          yPos += 80;
-          
-          pdf.setFontSize(9);
+        const imgWidth = contentWidth - 10;
+        const imgHeight = 65;
+        
+        pdf.setFillColor(243, 244, 246);
+        pdf.roundedRect(margin, yPos, contentWidth, 75, 3, 3, "F");
+        
+        if (trueColorImage) {
+          try {
+            pdf.addImage(trueColorImage, "PNG", margin + 5, yPos + 5, imgWidth, imgHeight);
+          } catch (e) {
+            console.warn("Could not add satellite image to PDF:", e);
+            // Show placeholder
+            pdf.setFontSize(12);
+            pdf.setTextColor(107, 114, 128);
+            pdf.text("Satellite Imagery", margin + contentWidth / 2 - 25, yPos + 35);
+            pdf.setFontSize(9);
+            pdf.text("True-color Landsat composite visualization", margin + contentWidth / 2 - 45, yPos + 45);
+          }
+        } else {
+          // Placeholder when no image available
+          pdf.setFontSize(12);
           pdf.setTextColor(107, 114, 128);
-          pdf.setFont("helvetica", "italic");
-          pdf.text(`Figure 1: True-color satellite composite of ${regionName} showing study area extent and environmental conditions.`, margin, yPos);
-          yPos += 10;
-        } catch (e) {
-          console.warn("Could not add satellite image to PDF");
+          pdf.text("Satellite Imagery Panel", margin + contentWidth / 2 - 30, yPos + 30);
+          pdf.setFontSize(9);
+          pdf.text("True-color Landsat 8/9 OLI composite", margin + contentWidth / 2 - 38, yPos + 40);
+          pdf.text(`Region: ${regionName}`, margin + contentWidth / 2 - 20, yPos + 50);
         }
+        yPos += 80;
+        
+        pdf.setFontSize(9);
+        pdf.setTextColor(107, 114, 128);
+        pdf.setFont("helvetica", "italic");
+        pdf.text(`Figure 1: True-color satellite composite of ${regionName} showing study area extent and environmental conditions.`, margin, yPos);
+        yPos += 10;
 
-        // Secondary images grid (if available)
-        if (falseColorImage || ndviImage) {
-          checkPageBreak(80);
-          yPos += 5;
-          
-          const gridImageWidth = (contentWidth - 8) / 2;
-          const gridImageHeight = 50;
-          
-          if (falseColorImage) {
-            try {
-              pdf.setFillColor(243, 244, 246);
-              pdf.roundedRect(margin, yPos, gridImageWidth, gridImageHeight + 10, 2, 2, "F");
-              pdf.addImage(falseColorImage, "PNG", margin + 3, yPos + 3, gridImageWidth - 6, gridImageHeight);
-              pdf.setFontSize(8);
-              pdf.setTextColor(107, 114, 128);
-              pdf.text("False Color Composite", margin + 3, yPos + gridImageHeight + 8);
-            } catch (e) {
-              console.warn("Could not add false color image");
-            }
+        // Secondary images grid
+        checkPageBreak(80);
+        yPos += 5;
+        
+        const gridImageWidth = (contentWidth - 8) / 2;
+        const gridImageHeight = 50;
+        
+        // False color panel
+        pdf.setFillColor(243, 244, 246);
+        pdf.roundedRect(margin, yPos, gridImageWidth, gridImageHeight + 10, 2, 2, "F");
+        
+        if (falseColorImage) {
+          try {
+            pdf.addImage(falseColorImage, "PNG", margin + 3, yPos + 3, gridImageWidth - 6, gridImageHeight);
+          } catch (e) {
+            console.warn("Could not add false color image:", e);
+            pdf.setFontSize(10);
+            pdf.setTextColor(107, 114, 128);
+            pdf.text("False Color", margin + gridImageWidth / 2 - 15, yPos + 25);
           }
-          
-          if (ndviImage) {
-            try {
-              const ndviX = margin + gridImageWidth + 8;
-              pdf.setFillColor(243, 244, 246);
-              pdf.roundedRect(ndviX, yPos, gridImageWidth, gridImageHeight + 10, 2, 2, "F");
-              pdf.addImage(ndviImage, "PNG", ndviX + 3, yPos + 3, gridImageWidth - 6, gridImageHeight);
-              pdf.setFontSize(8);
-              pdf.setTextColor(107, 114, 128);
-              pdf.text("NDVI Vegetation Index", ndviX + 3, yPos + gridImageHeight + 8);
-            } catch (e) {
-              console.warn("Could not add NDVI image");
-            }
-          }
-          
-          yPos += gridImageHeight + 18;
+        } else {
+          pdf.setFontSize(10);
+          pdf.setTextColor(107, 114, 128);
+          pdf.text("False Color Composite", margin + gridImageWidth / 2 - 28, yPos + 25);
+          pdf.setFontSize(8);
+          pdf.text("NIR-Red-Green bands", margin + gridImageWidth / 2 - 22, yPos + 35);
         }
+        pdf.setFontSize(8);
+        pdf.setTextColor(75, 85, 99);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("False Color Composite", margin + 3, yPos + gridImageHeight + 8);
+        
+        // NDVI panel
+        const ndviX = margin + gridImageWidth + 8;
+        pdf.setFillColor(243, 244, 246);
+        pdf.roundedRect(ndviX, yPos, gridImageWidth, gridImageHeight + 10, 2, 2, "F");
+        
+        if (ndviImage) {
+          try {
+            pdf.addImage(ndviImage, "PNG", ndviX + 3, yPos + 3, gridImageWidth - 6, gridImageHeight);
+          } catch (e) {
+            console.warn("Could not add NDVI image:", e);
+            pdf.setFontSize(10);
+            pdf.setTextColor(107, 114, 128);
+            pdf.text("NDVI Map", ndviX + gridImageWidth / 2 - 15, yPos + 25);
+          }
+        } else {
+          pdf.setFontSize(10);
+          pdf.setTextColor(107, 114, 128);
+          pdf.text("NDVI Vegetation Index", ndviX + gridImageWidth / 2 - 28, yPos + 25);
+          pdf.setFontSize(8);
+          pdf.text("Vegetation health analysis", ndviX + gridImageWidth / 2 - 28, yPos + 35);
+        }
+        pdf.setFontSize(8);
+        pdf.setTextColor(75, 85, 99);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("NDVI Vegetation Index", ndviX + 3, yPos + gridImageHeight + 8);
+        
+        yPos += gridImageHeight + 18;
       }
 
       // ============= KEY FINDINGS & TEMPORAL ANALYSIS =============
@@ -622,29 +671,43 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
       pdf.text("Note: Temporal analysis shows variation in change rates across the study period.", margin, yPos);
       yPos += 12;
 
-      // Trend chart
+      // Trend chart - always show section in professional reports
+      checkPageBreak(75);
+      yPos = addSubsectionTitle("Trend Analysis Visualization", yPos);
+      
+      pdf.setFillColor(249, 250, 251);
+      pdf.roundedRect(margin, yPos, contentWidth, 60, 3, 3, "F");
+      
+      const chartImgWidth = contentWidth - 10;
+      const chartImgHeight = 50;
+      
       if (chartImage) {
-        checkPageBreak(75);
-        yPos = addSubsectionTitle("Trend Analysis Visualization", yPos);
-        
         try {
-          pdf.setFillColor(249, 250, 251);
-          pdf.roundedRect(margin, yPos, contentWidth, 60, 3, 3, "F");
-          
-          const imgWidth = contentWidth - 10;
-          const imgHeight = 50;
-          pdf.addImage(chartImage, "PNG", margin + 5, yPos + 5, imgWidth, imgHeight);
-          yPos += 65;
-          
-          pdf.setFontSize(9);
-          pdf.setTextColor(107, 114, 128);
-          pdf.setFont("helvetica", "italic");
-          pdf.text("Figure 2: Environmental change trend analysis showing temporal patterns over the study period.", margin, yPos);
-          yPos += 12;
+          pdf.addImage(chartImage, "PNG", margin + 5, yPos + 5, chartImgWidth, chartImgHeight);
         } catch (e) {
-          console.warn("Could not add chart image to PDF");
+          console.warn("Could not add chart image to PDF:", e);
+          pdf.setFontSize(12);
+          pdf.setTextColor(107, 114, 128);
+          pdf.text("Trend Analysis Chart", margin + contentWidth / 2 - 30, yPos + 25);
+          pdf.setFontSize(9);
+          pdf.text("Environmental change trends over study period", margin + contentWidth / 2 - 50, yPos + 35);
         }
+      } else {
+        // Placeholder chart description
+        pdf.setFontSize(12);
+        pdf.setTextColor(107, 114, 128);
+        pdf.text("Trend Analysis Chart", margin + contentWidth / 2 - 30, yPos + 20);
+        pdf.setFontSize(9);
+        pdf.text(`${changePercent.toFixed(1)}% change detected over study period`, margin + contentWidth / 2 - 45, yPos + 32);
+        pdf.text("Quarterly breakdown shown in table above", margin + contentWidth / 2 - 42, yPos + 42);
       }
+      yPos += 65;
+      
+      pdf.setFontSize(9);
+      pdf.setTextColor(107, 114, 128);
+      pdf.setFont("helvetica", "italic");
+      pdf.text("Figure 2: Environmental change trend analysis showing temporal patterns over the study period.", margin, yPos);
+      yPos += 12;
 
       // ============= PROFESSIONAL REPORT EXTRAS =============
       if (!isSimple) {

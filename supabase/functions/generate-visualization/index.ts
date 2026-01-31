@@ -10,7 +10,7 @@ const ALLOWED_VISUALIZATION_TYPES = [
   'map', 'chart', 'heatmap', 'comparison', 'infographic', 
   'satellite_2d', 'satellite_3d', 'satellite_4d', 'predictive', 'timeline',
   'landsat_truecolor', 'landsat_falsecolor', 'landsat_ndvi', 'landsat_change',
-  'classification_map', 'change_detection_map'
+  'classification_map', 'change_detection_map', 'ndvi_map'
 ];
 
 function validateString(value: unknown, fieldName: string, maxLength: number, required = false): string | null {
@@ -113,6 +113,7 @@ Include legend explaining color interpretation.
 Professional remote sensing visualization, 16:9 aspect ratio.`;
         break;
 
+      case "ndvi_map":
       case "landsat_ndvi":
         prompt = `Create a Landsat-derived NDVI (Normalized Difference Vegetation Index) map of ${region}, Africa.
 NDVI = (NIR - Red) / (NIR + Red) visualization.
@@ -305,10 +306,10 @@ Professional scientific poster style, 16:9 aspect ratio.`;
     }
 
     // Use higher quality model for Landsat and satellite imagery
-    const highQualityTypes = ['satellite_2d', 'satellite_3d', 'satellite_4d', 'predictive', 'landsat_truecolor', 'landsat_falsecolor', 'landsat_ndvi', 'landsat_change', 'classification_map', 'change_detection_map'];
+    const highQualityTypes = ['satellite_2d', 'satellite_3d', 'satellite_4d', 'predictive', 'landsat_truecolor', 'landsat_falsecolor', 'landsat_ndvi', 'landsat_change', 'classification_map', 'change_detection_map', 'ndvi_map'];
     const model = highQualityTypes.includes(visualizationType)
       ? "google/gemini-3-pro-image-preview"
-      : "google/gemini-2.5-flash-image-preview";
+      : "google/gemini-2.5-flash-image";
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
