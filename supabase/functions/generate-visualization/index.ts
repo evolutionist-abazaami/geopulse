@@ -10,7 +10,10 @@ const ALLOWED_VISUALIZATION_TYPES = [
   'map', 'chart', 'heatmap', 'comparison', 'infographic', 
   'satellite_2d', 'satellite_3d', 'satellite_4d', 'predictive', 'timeline',
   'landsat_truecolor', 'landsat_falsecolor', 'landsat_ndvi', 'landsat_change',
-  'classification_map', 'change_detection_map', 'ndvi_map'
+  'classification_map', 'change_detection_map', 'ndvi_map',
+  // Advanced visualization types
+  'terrain_3d', 'thermal_analysis', 'ndwi_water', 'nbr_fire', 
+  'temporal_animation', 'risk_zones', 'ecosystem_health', 'driver_analysis'
 ];
 
 function validateString(value: unknown, fieldName: string, maxLength: number, required = false): string | null {
@@ -294,6 +297,135 @@ Include: Date labels, change percentage overlay, scale bar.
 ${severity === 'critical' ? 'Dramatic visible transformation between panels.' : 'Subtle but detectable differences.'}
 Professional remote sensing visualization, 16:9 aspect ratio.`;
         break;
+
+      // === ADVANCED VISUALIZATION TYPES ===
+      case "terrain_3d":
+        prompt = `Create an ultra-realistic 3D terrain visualization of ${region}, Africa using SRTM DEM elevation data.
+REQUIREMENTS:
+- Dramatic oblique 3D perspective view at 45-60 degree angle
+- Realistic terrain shadowing with sun angle from northwest
+- Landsat imagery draped on 3D topography
+- Clear visibility of: mountain ridges, valleys, river channels, escarpments
+- Vertical exaggeration 2x for dramatic effect
+- Overlay ${eventType} impact zones as semi-transparent colored regions
+- Show elevation color gradient: blue (lowlands) → green → yellow → brown → white (peaks)
+${changePercent > 15 ? 'Highlight critical change areas with pulsing boundaries.' : ''}
+Include: Elevation legend (meters), scale bar, viewing angle indicator.
+Professional 3D GIS terrain visualization, photorealistic, 16:9 aspect ratio.`;
+        break;
+
+      case "thermal_analysis":
+        prompt = `Create a Landsat thermal infrared analysis map of ${region}, Africa.
+Using Landsat 8/9 TIRS Band 10 (10.6-11.2 μm) thermal data.
+COLOR SCHEME:
+- Deep blue (< 15°C): Cool areas, water bodies, high altitude
+- Light blue/cyan (15-25°C): Moderate temperature zones
+- Green/yellow (25-35°C): Warm vegetation, agricultural areas
+- Orange (35-45°C): Hot bare soil, urban heat islands
+- Red/dark red (> 45°C): Extreme heat, fire scars, exposed rock
+Show thermal anomalies related to ${eventType}.
+${changePercent > 10 ? `Highlight temperature anomaly zones with ${Math.abs(changePercent)}% deviation.` : ''}
+Include: Temperature scale legend (°C), urban heat island indicators, cool spots.
+Scientific thermal remote sensing visualization, 100m resolution, 16:9 aspect ratio.`;
+        break;
+
+      case "ndwi_water":
+        prompt = `Create a Landsat-derived NDWI (Normalized Difference Water Index) map of ${region}, Africa.
+NDWI = (Green - NIR) / (Green + NIR) for water body detection.
+COLOR SCHEME:
+- Deep blue (0.3 to 1.0): Open water, rivers, lakes
+- Light blue (0.1 to 0.3): Shallow water, wetlands, flooded areas
+- Cyan (0 to 0.1): Saturated soil, water-logged terrain
+- Gray/tan (-0.3 to 0): Dry land, urban areas
+- Brown (-1 to -0.3): Bare soil, desert
+${spectralIndices?.ndwi ? `
+Data: Min ${spectralIndices.ndwi.min?.toFixed(2)}, Max ${spectralIndices.ndwi.max?.toFixed(2)}, Mean ${spectralIndices.ndwi.mean?.toFixed(2)}` : ''}
+Show water extent changes related to ${eventType} (${Math.abs(changePercent)}% change).
+Include: Water body boundaries, drainage networks, flood extent.
+Hydrological analysis map, Landsat 30m resolution, 16:9 aspect ratio.`;
+        break;
+
+      case "nbr_fire":
+        prompt = `Create a Landsat-derived NBR (Normalized Burn Ratio) map of ${region}, Africa.
+NBR = (NIR - SWIR2) / (NIR + SWIR2) for fire/burn severity mapping.
+COLOR SCHEME:
+- Dark green (0.5 to 1.0): Healthy, unburned vegetation
+- Light green (0.25 to 0.5): Low severity burn / regrowth
+- Yellow (0 to 0.25): Moderate-low severity burn
+- Orange (-0.25 to 0): Moderate-high severity burn
+- Red (-0.5 to -0.25): High severity burn
+- Black/dark red (-1 to -0.5): Severe burn scars
+${spectralIndices?.nbr ? `
+Data: Min ${spectralIndices.nbr.min?.toFixed(2)}, Max ${spectralIndices.nbr.max?.toFixed(2)}, Mean ${spectralIndices.nbr.mean?.toFixed(2)}` : ''}
+Show ${eventType} with fire-affected area of ${Math.abs(changePercent)}%.
+Include: Burn severity legend, fire perimeter boundaries, recovery zones.
+Fire ecology analysis map, Landsat 30m resolution, 16:9 aspect ratio.`;
+        break;
+
+      case "temporal_animation":
+        prompt = `Create a temporal animation sequence visualization of ${region}, Africa showing ${eventType} change over time.
+MULTI-FRAME COMPOSITE:
+- 6 panels showing yearly progression (2020-2025)
+- Each panel: Landsat snapshot with clear date label
+- Progressive color shift indicating change intensity
+- Arrow indicators showing change direction between panels
+${changeDetection ? `
+Total change: ${changeDetection.total_changed_area_km2} km²
+Rate: ${(changeDetection.change_percent / 5).toFixed(1)}% per year` : `Rate: ${(Math.abs(changePercent) / 2).toFixed(1)}% per year`}
+Include: Timeline bar, cumulative change graph, key event annotations.
+Professional time-series visualization, animated style, 16:9 aspect ratio.`;
+        break;
+
+      case "risk_zones":
+        prompt = `Create a risk zone classification map of ${region}, Africa for ${eventType}.
+RISK CLASSIFICATION:
+- Red/Dark Red: Critical Risk Zone (immediate intervention required)
+- Orange: High Risk Zone (urgent monitoring needed)
+- Yellow: Moderate Risk Zone (enhanced surveillance)
+- Light Green: Low Risk Zone (standard monitoring)
+- Dark Green: Minimal Risk Zone (stable conditions)
+Risk based on: ${Math.abs(changePercent)}% change rate, environmental drivers, vulnerability factors.
+${changeDetection?.change_hotspots ? `
+Priority Hotspots: ${changeDetection.change_hotspots.slice(0, 4).map((h: any) => h.location).join(', ')}` : ''}
+Include: Risk legend with action recommendations, priority zones numbered 1-5.
+Emergency management style map, 16:9 aspect ratio.`;
+        break;
+
+      case "ecosystem_health":
+        prompt = `Create a comprehensive ecosystem health dashboard for ${region}, Africa.
+MULTI-PANEL VISUALIZATION:
+- Panel 1: Vegetation health (NDVI-based) with health gradient
+- Panel 2: Water availability (NDWI-based) with moisture levels
+- Panel 3: Biodiversity indicators (habitat connectivity)
+- Panel 4: Overall ecosystem score (0-100)
+${spectralIndices ? `
+NDVI Health: ${spectralIndices.ndvi?.mean?.toFixed(2) || 'N/A'}
+${spectralIndices.ndwi ? `NDWI Water: ${spectralIndices.ndwi.mean?.toFixed(2)}` : ''}
+${spectralIndices.savi ? `SAVI Index: ${spectralIndices.savi.mean?.toFixed(2)}` : ''}` : ''}
+Overall Score: ${100 - Math.abs(changePercent)}%
+Status: ${changePercent > 15 ? 'CRITICAL' : changePercent > 8 ? 'WARNING' : 'STABLE'}
+Include: Trend arrows, health gauges, recommendation panel.
+Scientific dashboard style, 16:9 aspect ratio.`;
+        break;
+
+      case "driver_analysis":
+        prompt = `Create a driver analysis infographic for ${eventType} in ${region}, Africa.
+CAUSAL FACTORS VISUALIZATION:
+- Pie chart showing contribution of different drivers
+- Primary drivers: Land use change, Climate factors, Human activity
+- Secondary drivers: Policy, Infrastructure, Economic factors
+${changeDetection?.change_drivers ? `
+Driver Breakdown:
+${changeDetection.change_drivers.slice(0, 5).map((d: any) => `- ${d.driver}: ${d.contribution_percent}%`).join('\n')}` : `
+Estimated Drivers:
+- Agricultural expansion: 35%
+- Infrastructure development: 25%
+- Climate variability: 20%
+- Resource extraction: 15%
+- Other factors: 5%`}
+Include: Driver icons, interconnection arrows, mitigation recommendations.
+Professional infographic style, 16:9 aspect ratio.`;
+        break;
         
       default:
         prompt = `Create a professional environmental analysis infographic for ${region} showing ${eventType}.
@@ -306,7 +438,13 @@ Professional scientific poster style, 16:9 aspect ratio.`;
     }
 
     // Use higher quality model for Landsat and satellite imagery
-    const highQualityTypes = ['satellite_2d', 'satellite_3d', 'satellite_4d', 'predictive', 'landsat_truecolor', 'landsat_falsecolor', 'landsat_ndvi', 'landsat_change', 'classification_map', 'change_detection_map', 'ndvi_map'];
+    const highQualityTypes = [
+      'satellite_2d', 'satellite_3d', 'satellite_4d', 'predictive', 
+      'landsat_truecolor', 'landsat_falsecolor', 'landsat_ndvi', 'landsat_change', 
+      'classification_map', 'change_detection_map', 'ndvi_map',
+      'terrain_3d', 'thermal_analysis', 'ndwi_water', 'nbr_fire', 
+      'temporal_animation', 'risk_zones', 'ecosystem_health', 'driver_analysis'
+    ];
     const model = highQualityTypes.includes(visualizationType)
       ? "google/gemini-3-pro-image-preview"
       : "google/gemini-2.5-flash-image";
