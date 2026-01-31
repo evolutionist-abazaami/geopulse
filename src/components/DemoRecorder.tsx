@@ -401,30 +401,66 @@ const DemoRecorder = () => {
     }
   };
 
-  const copyShareLink = (recording: SavedRecording) => {
+  const copyShareLink = async (recording: SavedRecording) => {
     if (!recording.share_id) return;
 
-    const { data } = supabase.storage
-      .from("demo-recordings")
-      .getPublicUrl(recording.file_path);
+    try {
+      // Generate a signed URL for sharing (valid for 24 hours)
+      const { data, error } = await supabase.storage
+        .from("demo-recordings")
+        .createSignedUrl(recording.file_path, 86400); // 24 hours
 
-    navigator.clipboard.writeText(data.publicUrl);
-    setCopiedShareId(recording.id);
+      if (error || !data) {
+        toast({
+          title: "Failed to generate share link",
+          description: "Could not create a share URL.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    toast({
-      title: "Link copied!",
-      description: "Share link has been copied to clipboard.",
-    });
+      navigator.clipboard.writeText(data.signedUrl);
+      setCopiedShareId(recording.id);
 
-    setTimeout(() => setCopiedShareId(null), 2000);
+      toast({
+        title: "Link copied!",
+        description: "Share link has been copied to clipboard (valid for 24 hours).",
+      });
+
+      setTimeout(() => setCopiedShareId(null), 2000);
+    } catch (error) {
+      console.error("Error generating share link:", error);
+      toast({
+        title: "Failed to generate share link",
+        variant: "destructive",
+      });
+    }
   };
 
-  const playRecording = (recording: SavedRecording) => {
-    const { data } = supabase.storage
-      .from("demo-recordings")
-      .getPublicUrl(recording.file_path);
+  const playRecording = async (recording: SavedRecording) => {
+    try {
+      // Generate a signed URL for playback (valid for 1 hour)
+      const { data, error } = await supabase.storage
+        .from("demo-recordings")
+        .createSignedUrl(recording.file_path, 3600); // 1 hour
 
-    window.open(data.publicUrl, "_blank");
+      if (error || !data) {
+        toast({
+          title: "Failed to load recording",
+          description: "Could not generate playback URL.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      window.open(data.signedUrl, "_blank");
+    } catch (error) {
+      console.error("Error playing recording:", error);
+      toast({
+        title: "Playback failed",
+        variant: "destructive",
+      });
+    }
   };
 
   const resetRecording = useCallback(() => {
