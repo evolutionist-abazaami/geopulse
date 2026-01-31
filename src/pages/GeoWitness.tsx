@@ -107,6 +107,7 @@ const GeoWitness = () => {
   const [mapPolygons, setMapPolygons] = useState<any[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
+  const [selectedPoints, setSelectedPoints] = useState<{ lat: number; lng: number; name: string }[]>([]);
   const [activeTab, setActiveTab] = useState("search");
   const [is3DEnabled, setIs3DEnabled] = useState(false);
   const [activeHeatmapLayer, setActiveHeatmapLayer] = useState<HeatmapLayerType>("none");
@@ -124,10 +125,49 @@ const GeoWitness = () => {
   };
 
   const handleMapClick = (location: { lat: number; lng: number; name: string }) => {
+    // Add to selected points array for polygon drawing
+    const newPoints = [...selectedPoints, location];
+    setSelectedPoints(newPoints);
     setSelectedLocation(location);
     setRegion(location.name);
-    setMapCenter([location.lat, location.lng]);
-    toast.success(`Selected: ${location.name}`);
+    
+    // Create markers for all selected points
+    const markers = newPoints.map((pt, index) => ({
+      lat: pt.lat,
+      lng: pt.lng,
+      label: `Point ${index + 1}: ${pt.name}`,
+      color: index === newPoints.length - 1 ? "#0891b2" : "#6366f1"
+    }));
+    setMapMarkers(markers);
+    
+    // If 3+ points, draw polygon connecting them
+    if (newPoints.length >= 3) {
+      const polygonCoords: [number, number][] = newPoints.map(pt => [pt.lng, pt.lat]);
+      polygonCoords.push([newPoints[0].lng, newPoints[0].lat]); // Close the polygon
+      
+      setMapPolygons([{
+        coordinates: polygonCoords,
+        label: `Selection Area (${newPoints.length} points)`,
+        color: "#0891b2",
+        fillOpacity: 0.2
+      }]);
+    } else if (newPoints.length === 2) {
+      // Draw line between 2 points (as thin polygon)
+      setMapPolygons([{
+        coordinates: [
+          [newPoints[0].lng, newPoints[0].lat],
+          [newPoints[1].lng, newPoints[1].lat],
+          [newPoints[1].lng + 0.001, newPoints[1].lat + 0.001],
+          [newPoints[0].lng + 0.001, newPoints[0].lat + 0.001],
+          [newPoints[0].lng, newPoints[0].lat],
+        ] as [number, number][],
+        label: "Selection Line",
+        color: "#0891b2",
+        fillOpacity: 0.1
+      }]);
+    }
+    
+    toast.success(`Point ${newPoints.length} selected: ${location.name}`);
   };
 
   const handleShapefileImport = (features: AnalysisFeature[], bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => {
@@ -298,17 +338,57 @@ const GeoWitness = () => {
         {/* Selection Mode Indicator */}
         {selectionMode && (
           <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1000] sm:top-4">
-            <Card className="px-3 py-2 sm:px-4 sm:py-2 bg-primary text-primary-foreground flex items-center gap-2">
+            <Card className="px-3 py-2 sm:px-4 sm:py-2 bg-primary text-primary-foreground flex items-center gap-2 flex-wrap justify-center">
               <MousePointer className="h-4 w-4" />
-              <span className="text-xs sm:text-sm font-medium">Click on map to select location</span>
+              <span className="text-xs sm:text-sm font-medium">
+                Click to select points {selectedPoints.length > 0 && `(${selectedPoints.length} selected)`}
+              </span>
+              {selectedPoints.length > 0 && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-6 sm:h-7 text-xs bg-white/20 hover:bg-white/30"
+                  onClick={() => {
+                    setSelectedPoints([]);
+                    setMapMarkers([]);
+                    setMapPolygons([]);
+                    setSelectedLocation(null);
+                    toast.info("Selection cleared");
+                  }}
+                >
+                  Clear
+                </Button>
+              )}
               <Button 
                 size="sm" 
                 variant="secondary" 
-                className="ml-2 h-6 sm:h-7 text-xs"
-                onClick={() => setSelectionMode(false)}
+                className="h-6 sm:h-7 text-xs"
+                onClick={() => {
+                  setSelectionMode(false);
+                  setSelectedPoints([]);
+                  // Reset to Africa overview when cancelling selection
+                  setMapCenter([5.5, 20.0]);
+                  setMapZoom(4);
+                  setMapMarkers([]);
+                  setMapPolygons([]);
+                  setSelectedLocation(null);
+                }}
               >
                 Cancel
               </Button>
+              {selectedPoints.length >= 3 && (
+                <Button 
+                  size="sm" 
+                  variant="secondary" 
+                  className="h-6 sm:h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => {
+                    setSelectionMode(false);
+                    toast.success(`Polygon with ${selectedPoints.length} points confirmed`);
+                  }}
+                >
+                  Done
+                </Button>
+              )}
             </Card>
           </div>
         )}
