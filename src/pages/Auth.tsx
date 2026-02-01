@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Satellite, Loader2, ArrowLeft } from "lucide-react";
+import { Satellite, Loader2, ArrowLeft, Mail } from "lucide-react";
 import geopulseLogo from "@/assets/geopulse-logo.png";
 
 
@@ -18,7 +19,9 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showMagicLink, setShowMagicLink] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
+  const [magicLinkEmail, setMagicLinkEmail] = useState("");
 
   useEffect(() => {
     // Check if user is already logged in
@@ -50,18 +53,57 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+
+      if (result.redirected) {
+        // Page is redirecting to OAuth provider
+        return;
+      }
+
+      if (result.error) {
+        toast.error(result.error.message || "Failed to sign in with Google");
+        setIsLoading(false);
+        return;
+      }
+
+      toast.success("Successfully signed in with Google!");
+    } catch (error) {
+      console.error("Google signin error:", error);
+      toast.error("An unexpected error occurred. Please try again.");
+      setIsLoading(false);
+    }
+  };
+
+  const handleMagicLinkSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateEmail(magicLinkEmail)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: magicLinkEmail,
         options: {
-          redirectTo: `${window.location.origin}/`,
+          emailRedirectTo: `${window.location.origin}/`,
         },
       });
 
       if (error) {
         toast.error(error.message);
+        return;
       }
+
+      toast.success("Magic link sent! Check your email to sign in.");
+      setMagicLinkEmail("");
+      setShowMagicLink(false);
     } catch (error) {
-      console.error("Google signin error:", error);
+      console.error("Magic link error:", error);
       toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
@@ -201,7 +243,60 @@ const Auth = () => {
           </p>
         </div>
 
-        {showResetPassword ? (
+        {showMagicLink ? (
+          <div className="space-y-4">
+            <Button
+              type="button"
+              variant="ghost"
+              className="mb-2 -ml-2"
+              onClick={() => setShowMagicLink(false)}
+              disabled={isLoading}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to sign in
+            </Button>
+
+            <div className="text-center mb-4">
+              <h2 className="text-xl font-semibold mb-2">Sign in with Magic Link</h2>
+              <p className="text-sm text-muted-foreground">
+                Enter your email and we'll send you a link to sign in instantly - no password needed.
+              </p>
+            </div>
+
+            <form onSubmit={handleMagicLinkSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="magic-email">Email</Label>
+                <Input
+                  id="magic-email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={magicLinkEmail}
+                  onChange={(e) => setMagicLinkEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-gradient-ocean hover:opacity-90"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Send Magic Link
+                  </>
+                )}
+              </Button>
+            </form>
+          </div>
+        ) : showResetPassword ? (
           <div className="space-y-4">
             <Button
               type="button"
@@ -341,15 +436,27 @@ const Auth = () => {
                     )}
                   </Button>
 
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="w-full text-sm text-muted-foreground hover:text-primary"
-                    onClick={() => setShowResetPassword(true)}
-                    disabled={isLoading}
-                  >
-                    Forgot your password?
-                  </Button>
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="text-sm text-muted-foreground hover:text-primary"
+                      onClick={() => setShowMagicLink(true)}
+                      disabled={isLoading}
+                    >
+                      <Mail className="h-3 w-3 mr-1" />
+                      Sign in with Magic Link (no password)
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="text-sm text-muted-foreground hover:text-primary"
+                      onClick={() => setShowResetPassword(true)}
+                      disabled={isLoading}
+                    >
+                      Forgot your password?
+                    </Button>
+                  </div>
                 </form>
               </TabsContent>
 
