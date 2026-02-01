@@ -295,7 +295,36 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_demo_recordings: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          duration_seconds: number | null
+          id: string | null
+          public_access_id: string | null
+          share_id: string | null
+          title: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string | null
+          public_access_id?: never
+          share_id?: string | null
+          title?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string | null
+          public_access_id?: never
+          share_id?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       increment_shared_report_view: {
