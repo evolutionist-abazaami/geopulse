@@ -92,18 +92,26 @@ serve(async (req) => {
     }
     
     const supabase = createClient(supabaseUrl, supabaseKey);
+    // Require authentication for satellite analysis
     const authHeader = req.headers.get("authorization");
-    
-    let user = null;
-    if (authHeader) {
-      const token = authHeader.replace("Bearer ", "");
-      if (token && !token.startsWith("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6")) {
-        const { data } = await supabase.auth.getUser(token);
-        user = data?.user || null;
-      }
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required. Please sign in to use satellite analysis." }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
     
-    console.log(`Analysis request - User: ${user?.id || 'anonymous'}`);
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid or expired authentication token. Please sign in again." }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    console.log(`Analysis request - User: ${user.id}`);
 
     const body = await req.json();
     
