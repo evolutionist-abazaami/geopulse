@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      alert_preferences: {
+        Row: {
+          created_at: string
+          dashboard_enabled: boolean
+          email_address: string | null
+          email_enabled: boolean
+          id: string
+          min_severity: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dashboard_enabled?: boolean
+          email_address?: string | null
+          email_enabled?: boolean
+          id?: string
+          min_severity?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dashboard_enabled?: boolean
+          email_address?: string | null
+          email_enabled?: boolean
+          id?: string
+          min_severity?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       analysis_results: {
         Row: {
           ai_analysis: Json | null
@@ -176,6 +209,122 @@ export type Database = {
         }
         Relationships: []
       }
+      hazard_alerts: {
+        Row: {
+          ai_analysis: Json | null
+          created_at: string
+          description: string | null
+          hazard_type: string
+          id: string
+          is_read: boolean
+          is_resolved: boolean
+          lat: number
+          lng: number
+          metric_name: string | null
+          metric_value: number | null
+          region_name: string
+          resolved_at: string | null
+          severity: string
+          threshold_id: string | null
+          threshold_value: number | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          created_at?: string
+          description?: string | null
+          hazard_type: string
+          id?: string
+          is_read?: boolean
+          is_resolved?: boolean
+          lat: number
+          lng: number
+          metric_name?: string | null
+          metric_value?: number | null
+          region_name: string
+          resolved_at?: string | null
+          severity?: string
+          threshold_id?: string | null
+          threshold_value?: number | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          ai_analysis?: Json | null
+          created_at?: string
+          description?: string | null
+          hazard_type?: string
+          id?: string
+          is_read?: boolean
+          is_resolved?: boolean
+          lat?: number
+          lng?: number
+          metric_name?: string | null
+          metric_value?: number | null
+          region_name?: string
+          resolved_at?: string | null
+          severity?: string
+          threshold_id?: string | null
+          threshold_value?: number | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hazard_alerts_threshold_id_fkey"
+            columns: ["threshold_id"]
+            isOneToOne: false
+            referencedRelation: "monitoring_thresholds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monitoring_thresholds: {
+        Row: {
+          created_at: string
+          hazard_type: string
+          id: string
+          is_active: boolean
+          lat: number
+          lng: number
+          metric: string
+          operator: string
+          region_name: string
+          threshold_value: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hazard_type: string
+          id?: string
+          is_active?: boolean
+          lat: number
+          lng: number
+          metric: string
+          operator?: string
+          region_name: string
+          threshold_value: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          hazard_type?: string
+          id?: string
+          is_active?: boolean
+          lat?: number
+          lng?: number
+          metric?: string
+          operator?: string
+          region_name?: string
+          threshold_value?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       saved_locations: {
         Row: {
           created_at: string
@@ -290,6 +439,63 @@ export type Database = {
           share_id?: string
           title?: string
           view_count?: number
+        }
+        Relationships: []
+      }
+      weather_observations: {
+        Row: {
+          created_at: string
+          data_source: string | null
+          humidity_percent: number | null
+          id: string
+          lat: number
+          lng: number
+          nbr_value: number | null
+          ndvi_value: number | null
+          ndwi_value: number | null
+          observation_date: string
+          rainfall_mm: number | null
+          raw_data: Json | null
+          region_name: string
+          soil_moisture: number | null
+          temperature_c: number | null
+          wind_speed_kmh: number | null
+        }
+        Insert: {
+          created_at?: string
+          data_source?: string | null
+          humidity_percent?: number | null
+          id?: string
+          lat: number
+          lng: number
+          nbr_value?: number | null
+          ndvi_value?: number | null
+          ndwi_value?: number | null
+          observation_date?: string
+          rainfall_mm?: number | null
+          raw_data?: Json | null
+          region_name: string
+          soil_moisture?: number | null
+          temperature_c?: number | null
+          wind_speed_kmh?: number | null
+        }
+        Update: {
+          created_at?: string
+          data_source?: string | null
+          humidity_percent?: number | null
+          id?: string
+          lat?: number
+          lng?: number
+          nbr_value?: number | null
+          ndvi_value?: number | null
+          ndwi_value?: number | null
+          observation_date?: string
+          rainfall_mm?: number | null
+          raw_data?: Json | null
+          region_name?: string
+          soil_moisture?: number | null
+          temperature_c?: number | null
+          wind_speed_kmh?: number | null
         }
         Relationships: []
       }
