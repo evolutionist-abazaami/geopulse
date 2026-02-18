@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Moon, Sun, User, LogOut, Menu, X } from "lucide-react";
+import { Moon, Sun, User, LogOut, Menu, X, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import geopulseLogo from "@/assets/geopulse-logo.png";
@@ -113,6 +113,17 @@ const Navigation = () => {
                 >
                   Analytics
                 </Link>
+                <Link
+                  to="/early-warning"
+                  className={`text-sm font-medium transition-colors hover:text-primary flex items-center gap-1 ${
+                    isActive("/early-warning")
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  Early Warning
+                </Link>
               </>
             )}
             
@@ -222,6 +233,18 @@ const Navigation = () => {
                         }`}
                       >
                         Analytics
+                      </Link>
+                      <Link
+                        to="/early-warning"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`text-base font-medium transition-colors hover:text-primary flex items-center gap-1.5 ${
+                          isActive("/early-warning")
+                            ? "text-primary"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        <Shield className="h-4 w-4" />
+                        Early Warning
                       </Link>
                     </>
                   )}
