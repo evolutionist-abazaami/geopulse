@@ -590,6 +590,15 @@ const GeoWitness = () => {
               </CollapsibleContent>
             </Collapsible>
 
+            {/* Real-Time Regional Status */}
+            {selectedLocation && (
+              <RealTimeRegionalStatus
+                regionName={selectedLocation.name}
+                lat={selectedLocation.lat}
+                lng={selectedLocation.lng}
+              />
+            )}
+
             {/* Results */}
             {results && (
               <div className="space-y-4 pt-4 border-t border-border">
@@ -602,6 +611,9 @@ const GeoWitness = () => {
                     </Badge>
                   )}
                 </div>
+
+                {/* Data Provenance & Model Explainability */}
+                <DataProvenancePanel results={results} eventType={results.eventType || eventType} />
 
                 {/* Landsat Sensor Info */}
                 {results.landsatInfo && (

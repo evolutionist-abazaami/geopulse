@@ -75,6 +75,9 @@ const METRICS = [
   { value: "soil_moisture", label: "Soil Moisture" },
   { value: "wind_speed_kmh", label: "Wind Speed (km/h)" },
   { value: "humidity_percent", label: "Humidity (%)" },
+  { value: "ndvi_value", label: "NDVI (Vegetation Index)" },
+  { value: "ndwi_value", label: "NDWI (Water Index)" },
+  { value: "nbr_value", label: "NBR (Burn Ratio)" },
 ];
 
 const OPERATORS = [
