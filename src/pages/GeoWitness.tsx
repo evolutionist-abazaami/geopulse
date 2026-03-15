@@ -1,4 +1,6 @@
 import { useState } from "react";
+import DataProvenancePanel from "@/components/DataProvenancePanel";
+import RealTimeRegionalStatus from "@/components/RealTimeRegionalStatus";
 import MapLibreMap, { HeatmapLayerType } from "@/components/MapLibreMap";
 import MapLayerControls from "@/components/MapLayerControls";
 import LocationSearch from "@/components/LocationSearch";
@@ -85,6 +87,14 @@ const eventTypes = [
   // Air Quality
   { value: "air_pollution", label: "Air Pollution", icon: "💨" },
   { value: "dust_storms", label: "Dust Storms", icon: "🌪️" },
+  
+  // Pollution & Contamination
+  { value: "heavy_metal_pollution", label: "Heavy Metal Pollution", icon: "☢️" },
+  { value: "water_contamination", label: "Water Contamination", icon: "🧪" },
+  { value: "soil_contamination", label: "Soil Contamination", icon: "⚠️" },
+  { value: "industrial_pollution", label: "Industrial Pollution", icon: "🏭" },
+  { value: "oil_spill", label: "Oil Spill", icon: "🛢️" },
+  { value: "acid_mine_drainage", label: "Acid Mine Drainage", icon: "⛏️" },
   
   // Other
   { value: "snow_ice", label: "Snow & Ice Changes", icon: "❄️" },
@@ -580,6 +590,15 @@ const GeoWitness = () => {
               </CollapsibleContent>
             </Collapsible>
 
+            {/* Real-Time Regional Status */}
+            {selectedLocation && (
+              <RealTimeRegionalStatus
+                regionName={selectedLocation.name}
+                lat={selectedLocation.lat}
+                lng={selectedLocation.lng}
+              />
+            )}
+
             {/* Results */}
             {results && (
               <div className="space-y-4 pt-4 border-t border-border">
@@ -592,6 +611,9 @@ const GeoWitness = () => {
                     </Badge>
                   )}
                 </div>
+
+                {/* Data Provenance & Model Explainability */}
+                <DataProvenancePanel results={results} eventType={results.eventType || eventType} />
 
                 {/* Landsat Sensor Info */}
                 {results.landsatInfo && (

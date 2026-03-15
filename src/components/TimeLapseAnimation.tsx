@@ -38,7 +38,7 @@ const TimeLapseAnimation = ({ onFrameChange, mapCenter }: TimeLapseAnimationProp
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1000);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const generateTimeFrames = useCallback(() => {
     const newFrames: TimeFrame[] = [];
