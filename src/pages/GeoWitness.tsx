@@ -1,4 +1,6 @@
 import { useState } from "react";
+import DataProvenancePanel from "@/components/DataProvenancePanel";
+import RealTimeRegionalStatus from "@/components/RealTimeRegionalStatus";
 import MapLibreMap, { HeatmapLayerType } from "@/components/MapLibreMap";
 import MapLayerControls from "@/components/MapLayerControls";
 import LocationSearch from "@/components/LocationSearch";
