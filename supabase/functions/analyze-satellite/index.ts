@@ -295,6 +295,13 @@ IMPORTANT: Return your response as a JSON object with this structure:
     "projected_change_12mo": number,
     "confidence": number,
     "methodology": "linear_regression|time_series|machine_learning"
+  },
+  "methodology_transparency": {
+    "percentage_derivation": "explanation of how change_percent was calculated from spectral data",
+    "uncertainty_range": { "lower": number, "upper": number },
+    "confidence_interval": "95%",
+    "validation_notes": "how to validate against ground truth",
+    "known_limitations": ["limitation1", "limitation2"]
   }
 }`;
 
