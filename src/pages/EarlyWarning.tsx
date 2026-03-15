@@ -65,6 +65,8 @@ const HAZARD_TYPES = [
   { value: "fire", label: "Wildfire", icon: AlertTriangle, color: "text-red-500" },
   { value: "storm", label: "Storm", icon: Wind, color: "text-purple-500" },
   { value: "heatwave", label: "Heatwave", icon: Thermometer, color: "text-orange-500" },
+  { value: "pollution", label: "Pollution", icon: AlertTriangle, color: "text-emerald-500" },
+  { value: "heavy_metal", label: "Heavy Metal Contamination", icon: AlertTriangle, color: "text-rose-500" },
 ];
 
 const METRICS = [
