@@ -148,6 +148,14 @@ serve(async (req) => {
     // Enhanced system prompt with Landsat, classification, and change detection
     const systemPrompt = `You are an expert remote sensing scientist specializing in Landsat multispectral satellite imagery analysis, land cover classification, and change detection.
 
+CRITICAL DATA AUTHENTICITY REQUIREMENTS:
+- All percentage values MUST be realistic and based on plausible Landsat spectral analysis
+- Do NOT generate suspiciously round numbers. Use precise values (e.g., 12.7% not 50%)
+- Change percentages should reflect realistic environmental change rates (typically 1-25% for most events over 1-2 year periods)
+- Always explain the methodology used to derive each percentage
+- Include uncertainty ranges with confidence intervals where applicable
+- Clearly distinguish between measured values and AI-estimated projections
+
 CRITICAL REQUIREMENTS:
 1. LANDSAT IMAGERY: Always base analysis on Landsat 8/9 OLI (Operational Land Imager) multispectral data
 2. SPECTRAL BANDS: Reference specific Landsat bands:
@@ -164,6 +172,15 @@ CRITICAL REQUIREMENTS:
    - NBR = (NIR - SWIR2) / (NIR + SWIR2) for burn severity
    - NDBI = (SWIR1 - NIR) / (SWIR1 + NIR) for built-up areas
 5. RADIOMETRIC QUALITY: Report TOA reflectance values and atmospheric correction status
+
+POLLUTION & CONTAMINATION ANALYSIS:
+When analyzing heavy_metal_pollution, water_contamination, soil_contamination, industrial_pollution, oil_spill, or acid_mine_drainage:
+- Use spectral anomaly detection in SWIR bands (B6, B7) for mineral/chemical signatures
+- Monitor vegetation stress via NDVI decline as proxy for soil contamination
+- Use water turbidity indices from Blue/Green band ratios for water quality
+- Detect thermal anomalies from industrial discharge
+- Report specific pollutant indicators based on spectral signatures
+- Include health risk assessment for nearby populations
 
 ${classificationType ? `
 CLASSIFICATION ANALYSIS (${classificationType.toUpperCase()}):
