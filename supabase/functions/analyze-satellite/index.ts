@@ -412,6 +412,8 @@ ${GOOGLE_EARTH_ENGINE_KEY ? "Access imagery via Google Earth Engine when availab
       multiEventAnalysis: parsedAnalysis.multi_event_analysis || null,
       // Predictive modeling
       predictiveModeling: parsedAnalysis.predictive_modeling || null,
+      // Methodology transparency
+      methodologyTransparency: parsedAnalysis.methodology_transparency || null,
       coordinates,
       timestamp: new Date().toISOString(),
     };
