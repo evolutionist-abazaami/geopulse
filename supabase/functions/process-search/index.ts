@@ -86,26 +86,49 @@ IMPORTANT: Always provide real geographic coordinates for locations mentioned in
 Provide insights about environmental changes in African regions, including deforestation, flooding, drought, urbanization, or climate impacts.
 Consider satellite data availability and relevance.`;
 
-    // Call Google Gemini API directly
+    // Call Google Gemini API directly with retry on transient errors
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const aiResponse = await fetch(geminiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-        generationConfig: {
-          temperature: 0.6,
-          maxOutputTokens: 2000,
-          responseMimeType: "application/json",
-        },
-      }),
+    const requestBody = JSON.stringify({
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+      generationConfig: {
+        temperature: 0.6,
+        maxOutputTokens: 2000,
+        responseMimeType: "application/json",
+      },
     });
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("AI API error:", aiResponse.status, errorText);
-      throw new Error(`AI API error: ${aiResponse.status}`);
+    let aiResponse: Response | null = null;
+    const maxAttempts = 4;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      aiResponse = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: requestBody,
+      });
+      if (aiResponse.ok) break;
+      const errText = await aiResponse.text();
+      console.error(`AI API error (attempt ${attempt}/${maxAttempts}):`, aiResponse.status, errText);
+      const isRetryable = aiResponse.status === 503 || aiResponse.status === 429 || aiResponse.status === 500;
+      if (!isRetryable || attempt === maxAttempts) break;
+      await new Promise((r) => setTimeout(r, Math.min(1000 * Math.pow(2, attempt - 1), 8000) + Math.random() * 500));
+    }
+
+    if (!aiResponse || !aiResponse.ok) {
+      const status = aiResponse?.status || 500;
+      if (status === 503) {
+        return new Response(
+          JSON.stringify({ error: "Google Gemini is temporarily overloaded. Please try again in a minute." }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Gemini API rate limit reached. Please wait a moment and try again." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      throw new Error(`AI API error: ${status}`);
     }
 
     const aiData = await aiResponse.json();
