@@ -18,6 +18,11 @@ const CloudCoverageDisplay = ({
   sensorType = "Sentinel-2 MSI",
   acquisitionDate
 }: CloudCoverageDisplayProps) => {
+  const normalizedCloudCoverage = typeof cloudCoverage === "number" ? cloudCoverage : null;
+  const normalizedDataQuality = typeof dataQuality === "number" ? dataQuality : null;
+  const normalizedAnalysisConfidence = typeof analysisConfidence === "number" ? analysisConfidence : null;
+
+  const hasMetrics = normalizedCloudCoverage !== null && normalizedDataQuality !== null && normalizedAnalysisConfidence !== null;
   const isUsable = cloudCoverage <= 20 && dataQuality >= 70;
   const isAccurate = analysisConfidence >= 90;
 
@@ -54,7 +59,7 @@ const CloudCoverageDisplay = ({
             <Info className="h-4 w-4 text-muted-foreground" />
             Data Quality Metrics
           </span>
-          {isUsable ? (
+          {hasMetrics && isUsable ? (
             <Badge variant="outline" className="text-emerald-500 border-emerald-500/30 bg-emerald-500/10">
               <CheckCircle2 className="h-3 w-3 mr-1" />
               Usable
@@ -77,14 +82,14 @@ const CloudCoverageDisplay = ({
                     {getCloudIcon()}
                     Cloud Cover
                   </span>
-                  <span className="font-medium">{cloudCoverage.toFixed(1)}%</span>
+                  <span className="font-medium">{normalizedCloudCoverage === null ? "Unavailable" : `${normalizedCloudCoverage.toFixed(1)}%`}</span>
                 </div>
                 <Progress 
-                  value={100 - cloudCoverage} 
+                  value={normalizedCloudCoverage === null ? 0 : 100 - normalizedCloudCoverage} 
                   className="h-1.5" 
                 />
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {cloudStatus.label}
+                  {normalizedCloudCoverage === null ? "Unavailable" : cloudStatus.label}
                 </Badge>
               </div>
             </TooltipTrigger>
@@ -101,14 +106,14 @@ const CloudCoverageDisplay = ({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Data Quality</span>
-                  <span className={`font-medium ${qualityStatus.color}`}>{dataQuality}%</span>
+                  <span className={`font-medium ${qualityStatus.color}`}>{normalizedDataQuality === null ? "Unavailable" : `${normalizedDataQuality}%`}</span>
                 </div>
                 <Progress 
-                  value={dataQuality} 
+                  value={normalizedDataQuality ?? 0} 
                   className="h-1.5" 
                 />
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {qualityStatus.label}
+                  {normalizedDataQuality === null ? "Unavailable" : qualityStatus.label}
                 </Badge>
               </div>
             </TooltipTrigger>
@@ -125,19 +130,19 @@ const CloudCoverageDisplay = ({
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs text-muted-foreground">Analysis Confidence</span>
             <div className="flex items-center gap-2">
-              {isAccurate ? (
+               {normalizedAnalysisConfidence !== null && isAccurate ? (
                 <Badge className="bg-emerald-500 text-[10px] px-1.5 py-0">
                   ≥90% Accuracy
                 </Badge>
               ) : (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                  {analysisConfidence}% Confidence
+                   {normalizedAnalysisConfidence === null ? "Unavailable" : `${normalizedAnalysisConfidence}% Confidence`}
                 </Badge>
               )}
             </div>
           </div>
           <div className="relative">
-            <Progress value={analysisConfidence} className="h-2" />
+             <Progress value={normalizedAnalysisConfidence ?? 0} className="h-2" />
             <div 
               className="absolute top-0 h-2 w-0.5 bg-primary/50"
               style={{ left: '90%' }}
