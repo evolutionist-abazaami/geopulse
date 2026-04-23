@@ -83,10 +83,10 @@ serve(async (req) => {
     const landsatInfo = body.landsatInfo || body.data?.landsatInfo;
     const predictiveData = body.predictiveModeling || body.data?.predictiveModeling;
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY not configured");
     }
 
     console.log(`Generating ${visualizationType} visualization for ${region} - User: ${user?.id || 'anonymous'}`);
