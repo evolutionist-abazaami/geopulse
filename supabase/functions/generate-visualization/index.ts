@@ -449,26 +449,42 @@ Professional scientific poster style, 16:9 aspect ratio.`;
     const model = "gemini-2.5-flash-image-preview";
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-    const response = await fetch(geminiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-      }),
+    const requestBody = JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI API error:", response.status, errorText);
-      
-      if (response.status === 429) {
+    let response: Response | null = null;
+    const maxAttempts = 4;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      response = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: requestBody,
+      });
+      if (response.ok) break;
+      const errText = await response.text();
+      console.error(`AI API error (attempt ${attempt}/${maxAttempts}):`, response.status, errText);
+      const isRetryable = response.status === 503 || response.status === 429 || response.status === 500;
+      if (!isRetryable || attempt === maxAttempts) break;
+      await new Promise((r) => setTimeout(r, Math.min(1000 * Math.pow(2, attempt - 1), 8000) + Math.random() * 500));
+    }
+
+    if (!response || !response.ok) {
+      const status = response?.status || 500;
+      if (status === 503) {
+        return new Response(
+          JSON.stringify({ error: "Google Gemini is temporarily overloaded. Please try again in a minute." }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      throw new Error(`AI API error: ${response.status}`);
+      throw new Error(`AI API error: ${status}`);
     }
 
     const aiData = await response.json();
