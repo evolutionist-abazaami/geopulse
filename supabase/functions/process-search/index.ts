@@ -86,8 +86,7 @@ IMPORTANT: Always provide real geographic coordinates for locations mentioned in
 Provide insights about environmental changes in African regions, including deforestation, flooding, drought, urbanization, or climate impacts.
 Consider satellite data availability and relevance.`;
 
-    // Call Google Gemini API directly with retry on transient errors
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    // Call Google Gemini API with model fallback chain for resilience to overload
     const requestBody = JSON.stringify({
       systemInstruction: { parts: [{ text: systemPrompt }] },
       contents: [{ role: "user", parts: [{ text: userPrompt }] }],
@@ -98,20 +97,30 @@ Consider satellite data availability and relevance.`;
       },
     });
 
+    const modelChain = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
     let aiResponse: Response | null = null;
-    const maxAttempts = 4;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      aiResponse = await fetch(geminiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: requestBody,
-      });
-      if (aiResponse.ok) break;
-      const errText = await aiResponse.text();
-      console.error(`AI API error (attempt ${attempt}/${maxAttempts}):`, aiResponse.status, errText);
-      const isRetryable = aiResponse.status === 503 || aiResponse.status === 429 || aiResponse.status === 500;
-      if (!isRetryable || attempt === maxAttempts) break;
-      await new Promise((r) => setTimeout(r, Math.min(1000 * Math.pow(2, attempt - 1), 8000) + Math.random() * 500));
+    const attemptsPerModel = 2;
+
+    outer: for (const model of modelChain) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      for (let attempt = 1; attempt <= attemptsPerModel; attempt++) {
+        aiResponse = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody,
+        });
+        if (aiResponse.ok) {
+          console.log(`AI success on model ${model}`);
+          break outer;
+        }
+        const errText = await aiResponse.text();
+        console.error(`AI API error on ${model} (attempt ${attempt}):`, aiResponse.status, errText.slice(0, 200));
+        const isRetryable = aiResponse.status === 503 || aiResponse.status === 429 || aiResponse.status === 500;
+        if (!isRetryable) break outer;
+        if (attempt < attemptsPerModel) {
+          await new Promise((r) => setTimeout(r, 800 * attempt + Math.random() * 400));
+        }
+      }
     }
 
     if (!aiResponse || !aiResponse.ok) {
