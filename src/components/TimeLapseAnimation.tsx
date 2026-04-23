@@ -28,6 +28,8 @@ const eventTypes = [
   { value: "urbanization", label: "Urbanization", icon: "🏙️" },
 ];
 
+const isFallbackAnalysis = (data: any) => Boolean(data?.fallback || data?.fallbackReason === "SERVICE_UNAVAILABLE");
+
 const TimeLapseAnimation = ({ onFrameChange, mapCenter }: TimeLapseAnimationProps) => {
   const [eventType, setEventType] = useState("deforestation");
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
@@ -90,6 +92,13 @@ const TimeLapseAnimation = ({ onFrameChange, mapCenter }: TimeLapseAnimationProp
 
           if (response.ok) {
             const data = await response.json();
+            if (isFallbackAnalysis(data)) {
+              return {
+                ...frame,
+                value: 0,
+                data,
+              };
+            }
             return {
               ...frame,
               value: data.changePercent || Math.random() * 60 + 20,
