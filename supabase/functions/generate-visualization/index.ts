@@ -83,10 +83,10 @@ serve(async (req) => {
     const landsatInfo = body.landsatInfo || body.data?.landsatInfo;
     const predictiveData = body.predictiveModeling || body.data?.predictiveModeling;
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY not configured");
     }
 
     console.log(`Generating ${visualizationType} visualization for ${region} - User: ${user?.id || 'anonymous'}`);
@@ -445,28 +445,16 @@ Clean, modern design with data visualization elements.
 Professional scientific poster style, 16:9 aspect ratio.`;
     }
 
-    // Use higher quality model for Landsat and satellite imagery
-    const highQualityTypes = [
-      'satellite_2d', 'satellite_3d', 'satellite_4d', 'predictive', 
-      'landsat_truecolor', 'landsat_falsecolor', 'landsat_ndvi', 'landsat_change', 
-      'classification_map', 'change_detection_map', 'ndvi_map',
-      'terrain_3d', 'thermal_analysis', 'ndwi_water', 'nbr_fire', 
-      'temporal_animation', 'risk_zones', 'ecosystem_health', 'driver_analysis'
-    ];
-    const model = highQualityTypes.includes(visualizationType)
-      ? "google/gemini-3-pro-image-preview"
-      : "google/gemini-2.5-flash-image";
+    // Gemini image generation model (Nano Banana)
+    const model = "gemini-2.5-flash-image-preview";
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+    const response = await fetch(geminiUrl, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-        modalities: ["image", "text"]
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
       }),
     });
 
@@ -480,39 +468,43 @@ Professional scientific poster style, 16:9 aspect ratio.`;
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
       throw new Error(`AI API error: ${response.status}`);
     }
 
     const aiData = await response.json();
-    const message = aiData.choices?.[0]?.message;
-    const images = message?.images || [];
+    const parts = aiData?.candidates?.[0]?.content?.parts || [];
     
-    if (images.length === 0) {
+    // Find image part (inline_data) and text part
+    let imageUrl: string | null = null;
+    let description = "";
+    for (const part of parts) {
+      if (part.inline_data || part.inlineData) {
+        const inline = part.inline_data || part.inlineData;
+        const mime = inline.mime_type || inline.mimeType || "image/png";
+        imageUrl = `data:${mime};base64,${inline.data}`;
+      } else if (part.text) {
+        description += part.text;
+      }
+    }
+    
+    if (!imageUrl) {
       console.log("No images generated, returning placeholder");
       return new Response(
         JSON.stringify({ 
           success: true,
           imageUrl: null,
-          description: message?.content || "Visualization generated",
+          description: description || "Visualization generated",
           visualizationType
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const imageUrl = images[0]?.image_url?.url;
-
     return new Response(
       JSON.stringify({ 
         success: true,
         imageUrl,
-        description: message?.content || "Landsat visualization generated successfully",
+        description: description || "Landsat visualization generated successfully",
         visualizationType,
         model,
         dataSource: "Landsat 8/9 OLI"

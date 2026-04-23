@@ -55,10 +55,10 @@ serve(async (req) => {
     const body = await req.json();
     const query = validateQuery(body.query);
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY not configured");
     }
 
     console.log(`Processing search query for user ${user.id}: ${query.substring(0, 100)}...`);
@@ -86,22 +86,19 @@ IMPORTANT: Always provide real geographic coordinates for locations mentioned in
 Provide insights about environmental changes in African regions, including deforestation, flooding, drought, urbanization, or climate impacts.
 Consider satellite data availability and relevance.`;
 
-    // Call Lovable AI
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Call Google Gemini API directly
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const aiResponse = await fetch(geminiUrl, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        temperature: 0.6,
-        max_tokens: 2000,
-        response_format: { type: "json_object" },
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        generationConfig: {
+          temperature: 0.6,
+          maxOutputTokens: 2000,
+          responseMimeType: "application/json",
+        },
       }),
     });
 
@@ -112,7 +109,7 @@ Consider satellite data availability and relevance.`;
     }
 
     const aiData = await aiResponse.json();
-    let interpretation = aiData.choices[0].message.content;
+    let interpretation = aiData.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || '';
 
     // Strip markdown code blocks if present
     interpretation = interpretation.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();

@@ -127,10 +127,10 @@ serve(async (req) => {
     const files = validateFiles(body.files);
     const reportType = validateReportType(body.reportType);
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY not configured");
     }
 
     console.log(`Analyzing ${files.length} files with report type: ${reportType} for user ${user.id}`);
@@ -177,40 +177,36 @@ Return your analysis as JSON with this structure:
   "severity": "low|medium|high|critical"
 }`;
 
-    // Build messages array
-    const messages: unknown[] = [
-      { role: "system", content: systemPrompt }
-    ];
-
-    // If there are image files, include them in the message
+    // Build Gemini contents
+    const userParts: any[] = [];
     if (imageFiles.length > 0) {
-      const content: unknown[] = [
-        { 
-          type: "text", 
-          text: `Analyze these environmental/geospatial files for environmental changes and patterns:
+      userParts.push({
+        text: `Analyze these environmental/geospatial files for environmental changes and patterns:
 
 Files being analyzed:
 ${fileDescriptions.map((f) => `- ${f.name} (${f.type}, ${f.size})`).join('\n')}
 
 Please provide a comprehensive ${isSimple ? 'simple, easy-to-understand' : 'professional technical'} analysis.`
-        }
-      ];
+      });
 
-      // Add images (limit to first 3 for API limits)
+      // Add images as inline_data (limit to first 3)
       for (const img of imageFiles.slice(0, 3)) {
-        content.push({
-          type: "image_url",
-          image_url: { url: img.data }
+        // img.data may be a data URL like "data:image/png;base64,XXXX"
+        let mimeType = img.type;
+        let base64Data = img.data;
+        const dataUrlMatch = img.data.match(/^data:([^;]+);base64,(.+)$/);
+        if (dataUrlMatch) {
+          mimeType = dataUrlMatch[1];
+          base64Data = dataUrlMatch[2];
+        }
+        userParts.push({
+          inline_data: { mime_type: mimeType, data: base64Data }
         });
       }
-
-      messages.push({ role: "user", content });
     } else {
-      // Text/data files only - limit sample data size
       const sampleData = dataFiles.length > 0 ? dataFiles[0].data.substring(0, 500) : '';
-      messages.push({
-        role: "user",
-        content: `Analyze these environmental/geospatial data files:
+      userParts.push({
+        text: `Analyze these environmental/geospatial data files:
 
 Files being analyzed:
 ${fileDescriptions.map((f) => `- ${f.name} (${f.type}, ${f.size})`).join('\n')}
@@ -221,17 +217,18 @@ Please provide a comprehensive ${isSimple ? 'simple, easy-to-understand' : 'prof
       });
     }
 
-    // Call Lovable AI
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Call Google Gemini API directly
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const aiResponse = await fetch(geminiUrl, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages,
-        max_tokens: 3000,
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: "user", parts: userParts }],
+        generationConfig: {
+          maxOutputTokens: 3000,
+          responseMimeType: "application/json",
+        },
       }),
     });
 
@@ -245,17 +242,11 @@ Please provide a comprehensive ${isSimple ? 'simple, easy-to-understand' : 'prof
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits to continue." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
       throw new Error(`AI API error: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
-    let analysis = aiData.choices[0].message.content;
+    let analysis = aiData.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || '';
 
     // Strip markdown code blocks if present
     analysis = analysis.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
