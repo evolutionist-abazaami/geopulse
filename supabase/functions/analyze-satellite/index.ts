@@ -78,6 +78,98 @@ function validateClassificationType(value: unknown): ClassificationType | null {
   return value as ClassificationType;
 }
 
+function buildFallbackAnalysis(params: {
+  eventTypes: string[];
+  region: string;
+  startDate: string;
+  endDate: string;
+  coordinates: { lat: number; lng: number } | null;
+  classificationType: ClassificationType | null;
+  enableChangeDetection: boolean;
+  providerStatus: number;
+  providerMessage: string;
+}) {
+  const {
+    eventTypes,
+    region,
+    startDate,
+    endDate,
+    coordinates,
+    classificationType,
+    enableChangeDetection,
+    providerStatus,
+    providerMessage,
+  } = params;
+
+  return {
+    eventType: eventTypes[0],
+    eventTypes,
+    isMultiEvent: eventTypes.length > 1,
+    region,
+    startDate,
+    endDate,
+    area: "Analysis temporarily unavailable",
+    changePercent: 0,
+    summary: "Satellite analysis is temporarily delayed because the AI provider is under heavy load.",
+    fullAnalysis: "We could not complete this satellite analysis right now because the AI provider is temporarily overloaded. Please retry shortly.",
+    severity: "low",
+    recommendations: [
+      "Retry this analysis in 1-2 minutes.",
+      "Try a smaller date range if the issue continues.",
+      "Use saved results or comparison history while the provider recovers.",
+    ],
+    dataSources: ["Landsat 8 OLI", "Landsat 9 OLI"],
+    cloudCoverage: {
+      percentage: null,
+      detection_accuracy: null,
+      impact: "unknown",
+      affected_areas: "Analysis unavailable",
+      qa_band_quality: "unknown",
+    },
+    dataQuality: {
+      overall_score: null,
+      radiometric_quality: null,
+      geometric_accuracy: null,
+      temporal_coverage: null,
+      atmospheric_correction: "unknown",
+      reflectance_type: "unknown",
+    },
+    analysisConfidence: 0,
+    landsatInfo: {
+      sensor: "Landsat 8/9 OLI",
+      spatial_resolution: "30m",
+      acquisition_dates: [],
+      processing_level: "Unavailable",
+    },
+    spectralIndices: {},
+    classificationResults: classificationType ? { method: classificationType, unavailable: true } : null,
+    classificationType,
+    changeDetection: enableChangeDetection ? { unavailable: true } : null,
+    enableChangeDetection,
+    multiEventAnalysis: eventTypes.length > 1 ? { events: [], combined_impact: "Unavailable", interaction_effects: "Unavailable" } : null,
+    predictiveModeling: {
+      trend_direction: "stable",
+      projected_change_6mo: null,
+      projected_change_12mo: null,
+      confidence: 0,
+      methodology: "unavailable",
+    },
+    methodologyTransparency: {
+      percentage_derivation: "Analysis unavailable due to temporary AI provider overload.",
+      uncertainty_range: null,
+      confidence_interval: "Unavailable",
+      validation_notes: "Retry once provider capacity recovers.",
+      known_limitations: ["Temporary provider overload prevented the analysis from running."],
+    },
+    coordinates,
+    timestamp: new Date().toISOString(),
+    fallback: true,
+    fallbackReason: "SERVICE_UNAVAILABLE",
+    providerStatus,
+    providerMessage,
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -368,10 +460,22 @@ ${GOOGLE_EARTH_ENGINE_KEY ? "Access imagery via Google Earth Engine when availab
 
     if (!aiResponse || !aiResponse.ok) {
       const status = aiResponse?.status || 500;
-      if (status === 503) {
+      if (status === 503 || status === 500) {
+        const fallbackResult = buildFallbackAnalysis({
+          eventTypes,
+          region,
+          startDate,
+          endDate,
+          coordinates,
+          classificationType,
+          enableChangeDetection,
+          providerStatus: status,
+          providerMessage: lastErrorText || "Google Gemini is temporarily overloaded. Please try again in a minute.",
+        });
+
         return new Response(
-          JSON.stringify({ error: "Google Gemini is temporarily overloaded. Please try again in a minute." }),
-          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify(fallbackResult),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       if (status === 429) {
