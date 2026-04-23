@@ -25,6 +25,8 @@ const eventTypes = [
   { value: "wildfire", label: "Wildfire", icon: "🔥" },
 ];
 
+const isFallbackAnalysis = (data: any) => Boolean(data?.fallback || data?.fallbackReason === "SERVICE_UNAVAILABLE");
+
 const ComparisonMode = ({ onComparisonComplete }: ComparisonModeProps) => {
   const [eventType, setEventType] = useState("deforestation");
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
@@ -98,6 +100,10 @@ const ComparisonMode = ({ onComparisonComplete }: ComparisonModeProps) => {
 
       const period1Data = await period1Response.json();
       const period2Data = await period2Response.json();
+
+      if (isFallbackAnalysis(period1Data) || isFallbackAnalysis(period2Data)) {
+        toast.warning("Comparison loaded with temporary fallback data because the AI provider is overloaded.");
+      }
 
       const result = {
         location: selectedLocation.name,

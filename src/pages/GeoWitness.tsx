@@ -102,6 +102,8 @@ const eventTypes = [
   { value: "volcanic_activity", label: "Volcanic Activity", icon: "🌋" },
 ];
 
+const isFallbackAnalysis = (data: any) => Boolean(data?.fallback || data?.fallbackReason === "SERVICE_UNAVAILABLE");
+
 const GeoWitness = () => {
   const [eventType, setEventType] = useState("deforestation");
   const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([]);
@@ -256,6 +258,10 @@ const GeoWitness = () => {
       const data = await response.json();
       console.log("Analysis result:", data);
       setResults(data);
+
+      if (isFallbackAnalysis(data)) {
+        toast.warning("AI analysis is temporarily delayed due to provider load. Showing a fallback result.");
+      }
       
       // Set marker at the analyzed location
       setMapMarkers([{
@@ -285,7 +291,9 @@ const GeoWitness = () => {
       setMapCenter([coordinates.lat, coordinates.lng]);
       setMapZoom(10);
       
-      if (session) {
+      if (isFallbackAnalysis(data)) {
+        toast.info("Retry in a minute for a full satellite analysis.");
+      } else if (session) {
         toast.success("Analysis complete and saved!");
       } else {
         toast.success("Analysis complete! Sign in to save history.");
@@ -656,11 +664,14 @@ const GeoWitness = () => {
                   <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="font-semibold text-destructive text-sm">
-                      {results.severity === 'critical' ? 'Critical Impact' : 
+                      {results.fallback ? 'Analysis Delayed' :
+                       results.severity === 'critical' ? 'Critical Impact' : 
                        results.severity === 'high' ? 'High Impact' : 
                        results.severity === 'medium' ? 'Moderate Impact' : 'Low Impact'} Detected
                     </p>
-                    <p className="text-xs text-muted-foreground">Attention recommended</p>
+                    <p className="text-xs text-muted-foreground">
+                      {results.fallback ? 'The AI provider is temporarily overloaded. Retry shortly for full results.' : 'Attention recommended'}
+                    </p>
                   </div>
                 </div>
 
