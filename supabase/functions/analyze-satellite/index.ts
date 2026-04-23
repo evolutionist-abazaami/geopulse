@@ -428,7 +428,6 @@ LANDSAT DATA REQUIREMENTS:
 
 ${GOOGLE_EARTH_ENGINE_KEY ? "Access imagery via Google Earth Engine when available." : ""}`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
     const requestBody = JSON.stringify({
       systemInstruction: { parts: [{ text: systemPrompt }] },
       contents: [{ role: "user", parts: [{ text: userPrompt }] }],
@@ -439,23 +438,44 @@ ${GOOGLE_EARTH_ENGINE_KEY ? "Access imagery via Google Earth Engine when availab
       },
     });
 
-    // Retry with exponential backoff for transient errors (503, 429, 500)
+    // Model fallback chain - if one is overloaded, try the next.
+    // Ordered from most capable to most available.
+    const modelChain = [
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-2.0-flash",
+      "gemini-2.0-flash-lite",
+    ];
+
     let aiResponse: Response | null = null;
     let lastErrorText = "";
-    const maxAttempts = 4;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      aiResponse = await fetch(geminiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: requestBody,
-      });
-      if (aiResponse.ok) break;
-      lastErrorText = await aiResponse.text();
-      console.error(`AI API error (attempt ${attempt}/${maxAttempts}):`, aiResponse.status, lastErrorText);
-      const isRetryable = aiResponse.status === 503 || aiResponse.status === 429 || aiResponse.status === 500;
-      if (!isRetryable || attempt === maxAttempts) break;
-      const delayMs = Math.min(1000 * Math.pow(2, attempt - 1), 8000) + Math.random() * 500;
-      await new Promise((r) => setTimeout(r, delayMs));
+    let lastStatus = 0;
+    const attemptsPerModel = 2;
+
+    outer: for (const model of modelChain) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      for (let attempt = 1; attempt <= attemptsPerModel; attempt++) {
+        aiResponse = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody,
+        });
+        if (aiResponse.ok) {
+          console.log(`AI success on model ${model} (attempt ${attempt})`);
+          break outer;
+        }
+        lastErrorText = await aiResponse.text();
+        lastStatus = aiResponse.status;
+        console.error(`AI API error on ${model} (attempt ${attempt}/${attemptsPerModel}):`, aiResponse.status, lastErrorText.slice(0, 200));
+        const isRetryable = aiResponse.status === 503 || aiResponse.status === 429 || aiResponse.status === 500;
+        if (!isRetryable) break outer;
+        // Short backoff between attempts on same model; rotate to next model after.
+        if (attempt < attemptsPerModel) {
+          const delayMs = 800 * attempt + Math.random() * 400;
+          await new Promise((r) => setTimeout(r, delayMs));
+        }
+      }
+      console.log(`Rotating to next model after ${model} failed with ${lastStatus}`);
     }
 
     if (!aiResponse || !aiResponse.ok) {
