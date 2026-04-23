@@ -23,28 +23,31 @@ const CloudCoverageDisplay = ({
   const normalizedAnalysisConfidence = typeof analysisConfidence === "number" ? analysisConfidence : null;
 
   const hasMetrics = normalizedCloudCoverage !== null && normalizedDataQuality !== null && normalizedAnalysisConfidence !== null;
-  const isUsable = cloudCoverage <= 20 && dataQuality >= 70;
-  const isAccurate = analysisConfidence >= 90;
+  const isUsable = normalizedCloudCoverage !== null && normalizedDataQuality !== null && normalizedCloudCoverage <= 20 && normalizedDataQuality >= 70;
+  const isAccurate = normalizedAnalysisConfidence !== null && normalizedAnalysisConfidence >= 90;
 
   const getCloudIcon = () => {
-    if (cloudCoverage <= 10) return <CloudOff className="h-4 w-4 text-emerald-500" />;
-    if (cloudCoverage <= 30) return <Cloud className="h-4 w-4 text-amber-500" />;
+    if (normalizedCloudCoverage === null) return <Info className="h-4 w-4 text-muted-foreground" />;
+    if (normalizedCloudCoverage <= 10) return <CloudOff className="h-4 w-4 text-emerald-500" />;
+    if (normalizedCloudCoverage <= 30) return <Cloud className="h-4 w-4 text-amber-500" />;
     return <CloudRain className="h-4 w-4 text-destructive" />;
   };
 
   const getCloudStatus = () => {
-    if (cloudCoverage <= 10) return { label: "Clear", color: "bg-emerald-500" };
-    if (cloudCoverage <= 20) return { label: "Minimal", color: "bg-emerald-400" };
-    if (cloudCoverage <= 30) return { label: "Low", color: "bg-amber-400" };
-    if (cloudCoverage <= 50) return { label: "Moderate", color: "bg-amber-500" };
+    if (normalizedCloudCoverage === null) return { label: "Unavailable", color: "bg-muted" };
+    if (normalizedCloudCoverage <= 10) return { label: "Clear", color: "bg-emerald-500" };
+    if (normalizedCloudCoverage <= 20) return { label: "Minimal", color: "bg-emerald-400" };
+    if (normalizedCloudCoverage <= 30) return { label: "Low", color: "bg-amber-400" };
+    if (normalizedCloudCoverage <= 50) return { label: "Moderate", color: "bg-amber-500" };
     return { label: "High", color: "bg-destructive" };
   };
 
   const getQualityStatus = () => {
-    if (dataQuality >= 90) return { label: "Excellent", color: "text-emerald-500" };
-    if (dataQuality >= 80) return { label: "Good", color: "text-emerald-400" };
-    if (dataQuality >= 70) return { label: "Acceptable", color: "text-amber-500" };
-    if (dataQuality >= 50) return { label: "Low", color: "text-amber-600" };
+    if (normalizedDataQuality === null) return { label: "Unavailable", color: "text-muted-foreground" };
+    if (normalizedDataQuality >= 90) return { label: "Excellent", color: "text-emerald-500" };
+    if (normalizedDataQuality >= 80) return { label: "Good", color: "text-emerald-400" };
+    if (normalizedDataQuality >= 70) return { label: "Acceptable", color: "text-amber-500" };
+    if (normalizedDataQuality >= 50) return { label: "Low", color: "text-amber-600" };
     return { label: "Poor", color: "text-destructive" };
   };
 
