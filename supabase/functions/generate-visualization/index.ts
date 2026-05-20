@@ -445,62 +445,98 @@ Clean, modern design with data visualization elements.
 Professional scientific poster style, 16:9 aspect ratio.`;
     }
 
-    // Gemini image generation model (Nano Banana)
+    // Image generation via Lovable AI Gateway (primary) with direct Gemini as fallback.
+    // The Gateway uses LOVABLE_API_KEY which has higher quota than the free Gemini tier.
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const model = "gemini-2.5-flash-image";
-
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-    const requestBody = JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-    });
-
-    let response: Response | null = null;
-    const maxAttempts = 4;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      response = await fetch(geminiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: requestBody,
-      });
-      if (response.ok) break;
-      const errText = await response.text();
-      console.error(`AI API error (attempt ${attempt}/${maxAttempts}):`, response.status, errText);
-      const isRetryable = response.status === 503 || response.status === 429 || response.status === 500;
-      if (!isRetryable || attempt === maxAttempts) break;
-      await new Promise((r) => setTimeout(r, Math.min(1000 * Math.pow(2, attempt - 1), 8000) + Math.random() * 500));
-    }
-
-    if (!response || !response.ok) {
-      const status = response?.status || 500;
-      if (status === 503) {
-        return new Response(
-          JSON.stringify({ error: "Google Gemini is temporarily overloaded. Please try again in a minute." }),
-          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      throw new Error(`AI API error: ${status}`);
-    }
-
-    const aiData = await response.json();
-    const parts = aiData?.candidates?.[0]?.content?.parts || [];
-    
-    // Find image part (inline_data) and text part
     let imageUrl: string | null = null;
     let description = "";
-    for (const part of parts) {
-      if (part.inline_data || part.inlineData) {
-        const inline = part.inline_data || part.inlineData;
-        const mime = inline.mime_type || inline.mimeType || "image/png";
-        imageUrl = `data:${mime};base64,${inline.data}`;
-      } else if (part.text) {
-        description += part.text;
+    let lastStatus = 0;
+
+    // --- Attempt 1: Lovable AI Gateway ---
+    if (LOVABLE_API_KEY) {
+      try {
+        const gwRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: `google/${model}`,
+            messages: [{ role: "user", content: prompt }],
+            modalities: ["image", "text"],
+          }),
+        });
+        lastStatus = gwRes.status;
+        if (gwRes.ok) {
+          const gwData = await gwRes.json();
+          const msg = gwData?.choices?.[0]?.message;
+          const img = msg?.images?.[0]?.image_url?.url;
+          if (img) imageUrl = img;
+          if (typeof msg?.content === "string") description = msg.content;
+        } else {
+          console.error(`Lovable Gateway error: ${gwRes.status}`, (await gwRes.text()).slice(0, 200));
+        }
+      } catch (e) {
+        console.error("Lovable Gateway request failed:", e);
       }
+    }
+
+    // --- Attempt 2: Direct Gemini fallback ---
+    if (!imageUrl) {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      const requestBody = JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+      });
+      let response: Response | null = null;
+      const maxAttempts = 3;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        response = await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody,
+        });
+        if (response.ok) break;
+        lastStatus = response.status;
+        const errText = await response.text();
+        console.error(`Direct Gemini error (attempt ${attempt}/${maxAttempts}):`, response.status, errText.slice(0, 200));
+        const isRetryable = response.status === 503 || response.status === 429 || response.status === 500;
+        if (!isRetryable || attempt === maxAttempts) break;
+        await new Promise((r) => setTimeout(r, Math.min(1000 * Math.pow(2, attempt - 1), 6000) + Math.random() * 400));
+      }
+      if (response && response.ok) {
+        const aiData = await response.json();
+        const parts = aiData?.candidates?.[0]?.content?.parts || [];
+        for (const part of parts) {
+          if (part.inline_data || part.inlineData) {
+            const inline = part.inline_data || part.inlineData;
+            const mime = inline.mime_type || inline.mimeType || "image/png";
+            imageUrl = `data:${mime};base64,${inline.data}`;
+          } else if (part.text) {
+            description += part.text;
+          }
+        }
+      }
+    }
+
+    // Graceful fallback: never throw on upstream rate-limits/overloads.
+    if (!imageUrl && (lastStatus === 429 || lastStatus === 503 || lastStatus === 500)) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          imageUrl: null,
+          fallback: true,
+          description:
+            lastStatus === 429
+              ? "Image generation is rate-limited right now. Showing analysis without an AI-rendered visualization."
+              : "AI image provider is temporarily overloaded. Showing analysis without an AI-rendered visualization.",
+          visualizationType,
+          model,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
     
     if (!imageUrl) {
