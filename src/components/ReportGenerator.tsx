@@ -424,7 +424,7 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
       
       pdf.setFillColor(34, 197, 94);
       pdf.roundedRect(pageWidth - margin - 50, metaStartY + 8, 45, 8, 2, 2, "F");
-      pdf.text(`Confidence Level: ${confidence}%`, pageWidth - margin - 48, metaStartY + 13);
+      pdf.text(confidence !== null ? `Confidence Level: ${confidence}%` : `Confidence Level: N/A`, pageWidth - margin - 48, metaStartY + 13);
 
       yPos += 65;
 
