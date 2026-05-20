@@ -272,6 +272,43 @@ export function exportAsKML(
 }
 
 /**
+ * Export analysis data as a real ESRI Shapefile bundle (.shp/.shx/.dbf/.prj) inside a .zip.
+ * Compatible with ArcGIS, QGIS, MapInfo, GDAL/OGR and other traditional GIS tools.
+ * Points and polygons are written into separate shapefile layers within the same archive,
+ * which is required by the shapefile spec (one geometry type per file).
+ */
+export async function exportAsShapefileZip(
+  features: AnalysisFeature[],
+  filename: string = "geopulse-export"
+): Promise<void> {
+  // Dynamic import keeps initial bundle slim
+  const shpwrite = (await import("@mapbox/shp-write")).default || (await import("@mapbox/shp-write"));
+  const geoJSON = toGeoJSON(features);
+
+  // WGS84 / EPSG:4326 — standard projection for the bundled .prj
+  const prj =
+    'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]';
+
+  // shp-write expects DBF field names <= 10 chars (ESRI restriction). The properties
+  // in toGeoJSON are already short and ASCII-safe, so they survive the round-trip.
+  (shpwrite as any).download(
+    geoJSON,
+    {
+      folder: filename,
+      filename,
+      outputType: "blob",
+      compression: "DEFLATE",
+      prj,
+      types: {
+        point: "points",
+        polygon: "polygons",
+        line: "lines",
+      },
+    }
+  );
+}
+
+/**
  * Convert database analysis result to AnalysisFeature format
  */
 export function dbResultToFeature(result: any): AnalysisFeature | null {
