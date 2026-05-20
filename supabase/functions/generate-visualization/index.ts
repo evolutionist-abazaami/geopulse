@@ -446,7 +446,7 @@ Professional scientific poster style, 16:9 aspect ratio.`;
     }
 
     // Gemini image generation model (Nano Banana)
-    const model = "gemini-2.5-flash-image-preview";
+    const model = "gemini-2.5-flash-image";
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
     const requestBody = JSON.stringify({
