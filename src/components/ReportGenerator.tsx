@@ -537,7 +537,7 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
         ["Total Analysis Area (Baseline)", area, ""],
         ["Change Detected", `${Math.abs(changePercent).toFixed(1)}%`, changePercent > 15 ? "CRITICAL" : changePercent > 8 ? "MODERATE" : "LOW"],
         ["Annual Change Rate", `${(Math.abs(changePercent) / 2).toFixed(1)}% per year`, changePercent > 10 ? "CONCERNING" : "ACCEPTABLE"],
-        ["Confidence Level", `${confidence}%`, confidence >= 85 ? "HIGH" : "MODERATE"],
+        ["Confidence Level", confidence !== null ? `${confidence}%` : "N/A", confidence !== null ? (confidence >= 85 ? "HIGH" : "MODERATE") : "—"],
         ["Risk Classification", risk.level, risk.level],
       ];
       yPos = addTableWithBorders(assessmentHeaders, assessmentRows, yPos, [70, 50, 50]);
