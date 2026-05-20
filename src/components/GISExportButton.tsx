@@ -6,12 +6,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Download, FileJson, Map, Loader2 } from "lucide-react";
+import { Download, FileJson, Map, Loader2, FileArchive } from "lucide-react";
 import { toast } from "sonner";
 import {
   AnalysisFeature,
   exportAsGeoJSON,
   exportAsKML,
+  exportAsShapefileZip,
 } from "@/lib/gis-export";
 
 interface GISExportButtonProps {
