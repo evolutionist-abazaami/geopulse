@@ -219,17 +219,23 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
       let yPos = margin;
       const contentWidth = pageWidth - margin * 2;
 
-      // Extract data
-      const changePercent = parseFloat(analysisData?.changePercent || analysisData?.change_percent || 7.8);
+      // Extract data — use ONLY real values from the analysis. No synthetic fallbacks.
+      const rawChange = analysisData?.changePercent ?? analysisData?.change_percent;
+      const hasChange = rawChange !== undefined && rawChange !== null && !isNaN(parseFloat(rawChange));
+      const changePercent = hasChange ? parseFloat(rawChange) : 0;
       const risk = getRiskLevel(changePercent);
       const eventInfo = getEventTypeInfo(eventType || analysisData?.eventType);
       const reportDate = new Date();
-      const reportId = `GP-${reportDate.getFullYear()}${String(reportDate.getMonth() + 1).padStart(2, '0')}${String(reportDate.getDate()).padStart(2, '0')}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      const startDate = analysisData?.startDate || analysisData?.start_date || "2022-01-01";
+      // Deterministic report ID derived from analysis content so identical inputs → identical IDs
+      const idSeed = `${analysisData?.id || ''}|${analysisData?.region || region || ''}|${analysisData?.eventType || eventType || ''}|${analysisData?.startDate || analysisData?.start_date || ''}|${analysisData?.endDate || analysisData?.end_date || ''}|${rawChange ?? ''}`;
+      let hash = 0;
+      for (let i = 0; i < idSeed.length; i++) hash = ((hash << 5) - hash + idSeed.charCodeAt(i)) | 0;
+      const reportId = `GP-${reportDate.getFullYear()}${String(reportDate.getMonth() + 1).padStart(2, '0')}${String(reportDate.getDate()).padStart(2, '0')}-${Math.abs(hash).toString(36).toUpperCase().padStart(6, '0').slice(0, 8)}`;
+      const startDate = analysisData?.startDate || analysisData?.start_date || new Date().toISOString().split('T')[0];
       const endDate = analysisData?.endDate || analysisData?.end_date || new Date().toISOString().split('T')[0];
       const regionName = region || analysisData?.region || "Study Region";
-      const area = analysisData?.area || analysisData?.area_analyzed || "196.2 km²";
-      const confidence = analysisData?.confidenceLevel || analysisData?.confidence || 87;
+      const area = analysisData?.area || analysisData?.area_analyzed || "N/A";
+      const confidence = analysisData?.confidenceLevel ?? analysisData?.confidence ?? analysisData?.analysisConfidence ?? null;
 
       // Helper functions
       const addWrappedText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number = 5): number => {
@@ -418,7 +424,7 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
       
       pdf.setFillColor(34, 197, 94);
       pdf.roundedRect(pageWidth - margin - 50, metaStartY + 8, 45, 8, 2, 2, "F");
-      pdf.text(`Confidence Level: ${confidence}%`, pageWidth - margin - 48, metaStartY + 13);
+      pdf.text(confidence !== null ? `Confidence Level: ${confidence}%` : `Confidence Level: N/A`, pageWidth - margin - 48, metaStartY + 13);
 
       yPos += 65;
 
@@ -531,7 +537,7 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
         ["Total Analysis Area (Baseline)", area, ""],
         ["Change Detected", `${Math.abs(changePercent).toFixed(1)}%`, changePercent > 15 ? "CRITICAL" : changePercent > 8 ? "MODERATE" : "LOW"],
         ["Annual Change Rate", `${(Math.abs(changePercent) / 2).toFixed(1)}% per year`, changePercent > 10 ? "CONCERNING" : "ACCEPTABLE"],
-        ["Confidence Level", `${confidence}%`, confidence >= 85 ? "HIGH" : "MODERATE"],
+        ["Confidence Level", confidence !== null ? `${confidence}%` : "N/A", confidence !== null ? (confidence >= 85 ? "HIGH" : "MODERATE") : "—"],
         ["Risk Classification", risk.level, risk.level],
       ];
       yPos = addTableWithBorders(assessmentHeaders, assessmentRows, yPos, [70, 50, 50]);
@@ -705,24 +711,34 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
 
       yPos = addSectionTitle("KEY FINDINGS & ANALYSIS", yPos, "3");
 
-      // Temporal Dynamics table
+      // Temporal Dynamics table — uses real per-period values from analysis when present,
+      // otherwise reports only the validated study-period total (no fabricated quarterly splits).
       yPos = addSubsectionTitle("Temporal Dynamics", yPos);
-      
+
       const temporalHeaders = ["PERIOD", "CHANGE DETECTED", "RATE", "TREND"];
-      const temporalRows = [
-        ["Q1 Analysis Period", `${(changePercent * 0.23).toFixed(1)}%`, `${(changePercent * 0.23 / 3).toFixed(2)}%/month`, "↑"],
-        ["Q2 Analysis Period", `${(changePercent * 0.18).toFixed(1)}%`, `${(changePercent * 0.18 / 3).toFixed(2)}%/month`, "→"],
-        ["Q3 Analysis Period", `${(changePercent * 0.21).toFixed(1)}%`, `${(changePercent * 0.21 / 3).toFixed(2)}%/month`, "↑"],
-        ["Q4 Analysis Period", `${(changePercent * 0.38).toFixed(1)}%`, `${(changePercent * 0.38 / 3).toFixed(2)}%/month`, "↑↑"],
-        ["TOTAL", `${changePercent.toFixed(1)}%`, `${(changePercent / 12).toFixed(2)}%/month`, changePercent > 10 ? "↑↑" : "↑"],
-      ];
+      const periodsFromData = analysisData?.temporalBreakdown || analysisData?.temporal_breakdown;
+      let temporalRows: string[][];
+      if (Array.isArray(periodsFromData) && periodsFromData.length > 0) {
+        temporalRows = periodsFromData.map((p: any) => [
+          String(p.label || p.period || "Period"),
+          p.changePercent !== undefined ? `${parseFloat(p.changePercent).toFixed(1)}%` : "N/A",
+          p.rate || (p.changePercent !== undefined && p.months ? `${(parseFloat(p.changePercent) / parseFloat(p.months)).toFixed(2)}%/month` : "N/A"),
+          p.trend || (parseFloat(p.changePercent) > 5 ? "↑" : parseFloat(p.changePercent) < -5 ? "↓" : "→"),
+        ]);
+      } else {
+        temporalRows = [
+          ["Full Study Period", `${changePercent.toFixed(1)}%`, "Cumulative", changePercent > 10 ? "↑↑" : changePercent > 0 ? "↑" : changePercent < 0 ? "↓" : "→"],
+        ];
+      }
       yPos = addTableWithBorders(temporalHeaders, temporalRows, yPos, [50, 45, 40, 35]);
       yPos += 5;
 
       pdf.setFontSize(8);
       pdf.setTextColor(107, 114, 128);
       pdf.setFont("helvetica", "italic");
-      pdf.text("Note: Temporal analysis shows variation in change rates across the study period.", margin, yPos);
+      pdf.text(Array.isArray(periodsFromData) && periodsFromData.length > 0
+        ? "Per-period values derived from satellite analysis output."
+        : "Sub-period breakdown not provided by analysis; cumulative total shown.", margin, yPos);
       yPos += 12;
 
       // Trend chart - always show section in professional reports
