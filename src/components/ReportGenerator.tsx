@@ -711,24 +711,34 @@ const ReportGenerator = ({ analysisData, eventType, region }: ReportGeneratorPro
 
       yPos = addSectionTitle("KEY FINDINGS & ANALYSIS", yPos, "3");
 
-      // Temporal Dynamics table
+      // Temporal Dynamics table — uses real per-period values from analysis when present,
+      // otherwise reports only the validated study-period total (no fabricated quarterly splits).
       yPos = addSubsectionTitle("Temporal Dynamics", yPos);
-      
+
       const temporalHeaders = ["PERIOD", "CHANGE DETECTED", "RATE", "TREND"];
-      const temporalRows = [
-        ["Q1 Analysis Period", `${(changePercent * 0.23).toFixed(1)}%`, `${(changePercent * 0.23 / 3).toFixed(2)}%/month`, "↑"],
-        ["Q2 Analysis Period", `${(changePercent * 0.18).toFixed(1)}%`, `${(changePercent * 0.18 / 3).toFixed(2)}%/month`, "→"],
-        ["Q3 Analysis Period", `${(changePercent * 0.21).toFixed(1)}%`, `${(changePercent * 0.21 / 3).toFixed(2)}%/month`, "↑"],
-        ["Q4 Analysis Period", `${(changePercent * 0.38).toFixed(1)}%`, `${(changePercent * 0.38 / 3).toFixed(2)}%/month`, "↑↑"],
-        ["TOTAL", `${changePercent.toFixed(1)}%`, `${(changePercent / 12).toFixed(2)}%/month`, changePercent > 10 ? "↑↑" : "↑"],
-      ];
+      const periodsFromData = analysisData?.temporalBreakdown || analysisData?.temporal_breakdown;
+      let temporalRows: string[][];
+      if (Array.isArray(periodsFromData) && periodsFromData.length > 0) {
+        temporalRows = periodsFromData.map((p: any) => [
+          String(p.label || p.period || "Period"),
+          p.changePercent !== undefined ? `${parseFloat(p.changePercent).toFixed(1)}%` : "N/A",
+          p.rate || (p.changePercent !== undefined && p.months ? `${(parseFloat(p.changePercent) / parseFloat(p.months)).toFixed(2)}%/month` : "N/A"),
+          p.trend || (parseFloat(p.changePercent) > 5 ? "↑" : parseFloat(p.changePercent) < -5 ? "↓" : "→"),
+        ]);
+      } else {
+        temporalRows = [
+          ["Full Study Period", `${changePercent.toFixed(1)}%`, "Cumulative", changePercent > 10 ? "↑↑" : changePercent > 0 ? "↑" : changePercent < 0 ? "↓" : "→"],
+        ];
+      }
       yPos = addTableWithBorders(temporalHeaders, temporalRows, yPos, [50, 45, 40, 35]);
       yPos += 5;
 
       pdf.setFontSize(8);
       pdf.setTextColor(107, 114, 128);
       pdf.setFont("helvetica", "italic");
-      pdf.text("Note: Temporal analysis shows variation in change rates across the study period.", margin, yPos);
+      pdf.text(Array.isArray(periodsFromData) && periodsFromData.length > 0
+        ? "Per-period values derived from satellite analysis output."
+        : "Sub-period breakdown not provided by analysis; cumulative total shown.", margin, yPos);
       yPos += 12;
 
       // Trend chart - always show section in professional reports
