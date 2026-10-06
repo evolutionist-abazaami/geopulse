@@ -441,10 +441,9 @@ ${GOOGLE_EARTH_ENGINE_KEY ? "Access imagery via Google Earth Engine when availab
     // Model fallback chain - if one is overloaded, try the next.
     // Ordered from most capable to most available.
     const modelChain = [
+      "gemini-3.8-flash",
       "gemini-2.5-flash",
       "gemini-2.5-flash-lite",
-      "gemini-2.0-flash",
-      "gemini-2.0-flash-lite",
     ];
 
     let aiResponse: Response | null = null;

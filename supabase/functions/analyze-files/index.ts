@@ -227,7 +227,7 @@ Please provide a comprehensive ${isSimple ? 'simple, easy-to-understand' : 'prof
       },
     });
 
-    const modelChain = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
+    const modelChain = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite"];
     let aiResponse: Response | null = null;
     const attemptsPerModel = 2;
 
