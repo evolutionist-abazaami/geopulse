@@ -1,3 +1,4 @@
+import { tryGroqStream } from "../_shared/groq.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -58,8 +59,8 @@ serve(async (req) => {
     }
 
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    if (!GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY is not configured');
+    if (!GEMINI_API_KEY && !Deno.env.get('GROQ_API_KEY')) {
+      throw new Error('No AI key configured');
     }
 
     const systemPrompt = `You are GeoPulse AI Assistant, an expert in geospatial analysis, environmental monitoring, and satellite imagery interpretation for Africa.
@@ -94,6 +95,16 @@ Current GeoPulse features:
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
     }));
+
+    const groqStream = await tryGroqStream({
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: geminiContents,
+    });
+    if (groqStream) {
+      return new Response(groqStream.body, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
+      });
+    }
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
     const response = await fetch(geminiUrl, {

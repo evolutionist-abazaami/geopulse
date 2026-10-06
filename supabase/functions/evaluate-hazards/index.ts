@@ -1,3 +1,4 @@
+import { tryGroq } from "../_shared/groq.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -26,12 +27,21 @@ function determineSeverity(value: number, threshold: number, hazardType: string)
 
 async function getAIAnalysis(hazardType: string, metricName: string, metricValue: number, thresholdValue: number, regionName: string) {
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-  if (!GEMINI_API_KEY) return null;
 
   try {
     const systemText = "You are a disaster risk analyst specializing in African environmental hazards. Provide concise, actionable risk assessments in 2-3 sentences.";
     const userText = `A ${hazardType} hazard threshold has been triggered in ${regionName}. The ${metricName} reading is ${metricValue} (threshold: ${thresholdValue}). Provide a brief risk assessment and recommended actions.`;
 
+    const groqBody = {
+      systemInstruction: { parts: [{ text: systemText }] },
+      contents: [{ role: "user", parts: [{ text: userText }] }],
+    };
+    const groqRes = await tryGroq(groqBody);
+    if (groqRes) {
+      const d = await groqRes.json();
+      return { assessment: d.candidates[0].content.parts[0].text, model: "groq/llama-3.3-70b-versatile", generated_at: new Date().toISOString() };
+    }
+    if (!GEMINI_API_KEY) return null;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`;
     const response = await fetch(url, {
       method: "POST",

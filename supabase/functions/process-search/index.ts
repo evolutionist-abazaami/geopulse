@@ -1,3 +1,4 @@
+import { tryGroq } from "../_shared/groq.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -57,8 +58,8 @@ serve(async (req) => {
     
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY not configured");
+    if (!GEMINI_API_KEY && !Deno.env.get("GROQ_API_KEY")) {
+      throw new Error("No AI key configured");
     }
 
     console.log(`Processing search query for user ${user.id}: ${query.substring(0, 100)}...`);
@@ -101,7 +102,8 @@ Consider satellite data availability and relevance.`;
     let aiResponse: Response | null = null;
     const attemptsPerModel = 2;
 
-    outer: for (const model of modelChain) {
+    aiResponse = await tryGroq(requestBody);
+    outer: for (const model of (aiResponse ? [] : modelChain)) {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
       for (let attempt = 1; attempt <= attemptsPerModel; attempt++) {
         aiResponse = await fetch(url, {
