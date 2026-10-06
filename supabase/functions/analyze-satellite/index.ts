@@ -442,7 +442,6 @@ ${GOOGLE_EARTH_ENGINE_KEY ? "Access imagery via Google Earth Engine when availab
     // Ordered from most capable to most available.
     const modelChain = [
       "gemini-3.8-flash",
-      "gemini-3.8-flash-lite",
       "gemini-2.5-flash",
       "gemini-2.5-flash-lite",
     ];
