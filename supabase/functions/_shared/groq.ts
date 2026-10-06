@@ -3,8 +3,8 @@
 // Returns null when Groq is unavailable/unsuitable so callers fall back to Gemini.
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-export const GROQ_TEXT_MODEL = "llama-3.3-70b-versatile";
-export const GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+export const GROQ_TEXT_MODEL = "openai/gpt-oss-120b";
+export const GROQ_VISION_MODEL = "qwen/qwen3.8-27b";
 
 function convertParts(parts: any[]): { content: any; hasImage: boolean; unsupported: boolean } {
   let hasImage = false;

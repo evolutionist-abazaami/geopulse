@@ -39,7 +39,7 @@ async function getAIAnalysis(hazardType: string, metricName: string, metricValue
     const groqRes = await tryGroq(groqBody);
     if (groqRes) {
       const d = await groqRes.json();
-      return { assessment: d.candidates[0].content.parts[0].text, model: "groq/llama-3.3-70b-versatile", generated_at: new Date().toISOString() };
+      return { assessment: d.candidates[0].content.parts[0].text, model: "groq/openai/gpt-oss-120b", generated_at: new Date().toISOString() };
     }
     if (!GEMINI_API_KEY) return null;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`;
